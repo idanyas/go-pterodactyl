@@ -27,4 +27,4 @@ fmt.Printf("There are %d nodes\n", len(nodes))
 ```
 
 ## Installation 
-go get github.com/your‑org/go‑pterodactyl@latest
+go get github.com/davidarkless/go‑pterodactyl@latest
