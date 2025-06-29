@@ -1,6 +1,7 @@
 package pterodactyl_test
 
 import (
+	"context"
 	"github.com/davidarkless/go-pterodactyl"
 	"testing"
 )
@@ -16,13 +17,13 @@ func TestNewClientSuccess(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "Valid Application Key",
+			name:          "Valid ApplicationAPI Key",
 			apiKey:        "ptla_abc123", // A dummy key with the correct prefix
 			keyType:       pterodactyl.ApplicationKey,
 			expectedError: false,
 		},
 		{
-			name:          "Valid Client Key",
+			name:          "Valid ClientAPI Key",
 			apiKey:        "ptlc_def456", // A dummy key with the correct prefix
 			keyType:       pterodactyl.ClientKey,
 			expectedError: false,
@@ -46,11 +47,11 @@ func TestNewClientSuccess(t *testing.T) {
 				if client == nil {
 					t.Fatal("expected client to be non-nil on success")
 				}
-				if client.Application == nil {
-					t.Error("expected Application service to be initialized")
+				if client.ApplicationAPI == nil {
+					t.Error("expected ApplicationAPI service to be initialized")
 				}
-				if client.Client == nil {
-					t.Error("expected Client service to be initialized")
+				if client.ClientAPI == nil {
+					t.Error("expected ClientAPI service to be initialized")
 				}
 			}
 		})
@@ -68,25 +69,25 @@ func TestNewClient_InvalidKeyFormat(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "Invalid Application Key",
+			name:          "Invalid ApplicationAPI Key",
 			apiKey:        "ptlc_wrongprefix", // A client key prefix used for an application client
 			keyType:       pterodactyl.ApplicationKey,
 			expectedError: true,
 		},
 		{
-			name:          "Invalid Client Key",
+			name:          "Invalid ClientAPI Key",
 			apiKey:        "ptla_wrongprefix", // An application key prefix used for a client client
 			keyType:       pterodactyl.ClientKey,
 			expectedError: true,
 		},
 		{
-			name:          "Application Key without prefix",
+			name:          "ApplicationAPI Key without prefix",
 			apiKey:        "noprefix",
 			keyType:       pterodactyl.ApplicationKey,
 			expectedError: true,
 		},
 		{
-			name:          "Client Key without prefix",
+			name:          "ClientAPI Key without prefix",
 			apiKey:        "noprefix",
 			keyType:       pterodactyl.ClientKey,
 			expectedError: true,
@@ -130,13 +131,7 @@ func TestNewClient_InvalidURL(t *testing.T) {
 		t.Skip("Skipping test: NewClient should validate the baseURL upon creation.")
 	}
 
-	// This test reveals a small design flaw: the baseURL isn't validated until a request is made.
-	// Let's fix that in pterodactyl.go first, then complete this test.
-	// See the "Refinement" section below.
-
-	// For now, this is how you'd test the *current* behavior:
-	// Assuming `client.Client.ListPermissions()` is a simple method with no body.
-	_, listErr := client.Client.ListPermissions()
+	_, listErr := client.ClientAPI.ListPermissions(context.Background())
 	if listErr == nil {
 		t.Errorf("expected an error from a request with a malformed baseURL, but got none")
 	}

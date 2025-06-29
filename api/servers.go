@@ -119,11 +119,10 @@ type ClientServer struct {
 	Description   string              `json:"description"`
 	Limits        ServerLimits        `json:"limits"`
 	FeatureLimits ServerFeatureLimits `json:"feature_limits"`
-	// In the Client API, `is_suspended` and `is_installing` might appear.
+	// In the ClientAPI API, `is_suspended` and `is_installing` might appear.
 	// Using a custom boolean type is a good proactive measure.
-	IsSuspended  BoolInt `json:"is_suspended"`
-	IsInstalling BoolInt `json:"is_installing"`
-	// The `relationships` in the client API can also be included.
+	IsSuspended   BoolInt              `json:"is_suspended"`
+	IsInstalling  BoolInt              `json:"is_installing"`
 	Relationships *ServerRelationships `json:"relationships,omitempty"`
 }
 

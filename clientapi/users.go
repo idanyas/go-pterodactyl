@@ -2,6 +2,7 @@ package clientapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/davidarkless/go-pterodactyl/api"
@@ -17,15 +18,15 @@ func newUsersService(client requester.Requester, serverIdentifier string) *users
 	return &usersService{client: client, serverIdentifier: serverIdentifier}
 }
 
-func (s *usersService) List(options api.PaginationOptions) ([]*api.Subuser, *api.Meta, error) {
+func (s *usersService) List(ctx context.Context, options api.PaginationOptions) ([]*api.Subuser, *api.Meta, error) {
 	endpoint := fmt.Sprintf("/api/client/servers/%s/users", s.serverIdentifier)
-	req, err := s.client.NewRequest("GET", endpoint, nil, &options)
+	req, err := s.client.NewRequest(ctx, "GET", endpoint, nil, &options)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create list subusers request: %w", err)
 	}
 
 	res := &api.PaginatedResponse[api.Subuser]{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -38,20 +39,20 @@ func (s *usersService) List(options api.PaginationOptions) ([]*api.Subuser, *api
 }
 
 // Create sends a request to add a new subuser to the server.
-func (s *usersService) Create(options api.SubuserCreateOptions) (*api.Subuser, error) {
+func (s *usersService) Create(ctx context.Context, options api.SubuserCreateOptions) (*api.Subuser, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal create subuser options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/client/servers/%s/users", s.serverIdentifier)
-	req, err := s.client.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
+	req, err := s.client.NewRequest(ctx, "POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new subuser request: %w", err)
 	}
 
 	res := &api.SubuserResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -60,15 +61,15 @@ func (s *usersService) Create(options api.SubuserCreateOptions) (*api.Subuser, e
 }
 
 // Details retrieves the details of a specific subuser by their UUID.
-func (s *usersService) Details(uuid string) (*api.Subuser, error) {
+func (s *usersService) Details(ctx context.Context, uuid string) (*api.Subuser, error) {
 	endpoint := fmt.Sprintf("/api/client/servers/%s/users/%s", s.serverIdentifier, uuid)
-	req, err := s.client.NewRequest("GET", endpoint, nil, nil)
+	req, err := s.client.NewRequest(ctx, "GET", endpoint, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subuser details request: %w", err)
 	}
 
 	res := &api.SubuserResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -78,20 +79,20 @@ func (s *usersService) Details(uuid string) (*api.Subuser, error) {
 
 // Update modifies the permissions of an existing subuser.
 // Note: The Pterodactyl API uses POST for this update operation.
-func (s *usersService) Update(uuid string, options api.SubuserUpdateOptions) (*api.Subuser, error) {
+func (s *usersService) Update(ctx context.Context, uuid string, options api.SubuserUpdateOptions) (*api.Subuser, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal update subuser options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/client/servers/%s/users/%s", s.serverIdentifier, uuid)
-	req, err := s.client.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
+	req, err := s.client.NewRequest(ctx, "POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create update subuser request: %w", err)
 	}
 
 	res := &api.SubuserResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -100,14 +101,14 @@ func (s *usersService) Update(uuid string, options api.SubuserUpdateOptions) (*a
 }
 
 // Delete removes a subuser from the server.
-func (s *usersService) Delete(uuid string) error {
+func (s *usersService) Delete(ctx context.Context, uuid string) error {
 	endpoint := fmt.Sprintf("/api/client/servers/%s/users/%s", s.serverIdentifier, uuid)
-	req, err := s.client.NewRequest("DELETE", endpoint, nil, nil)
+	req, err := s.client.NewRequest(ctx, "DELETE", endpoint, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create delete subuser request: %w", err)
 	}
 
 	// A successful deletion returns a 204 No Content response.
-	_, err = s.client.Do(req, nil)
+	_, err = s.client.Do(ctx, req, nil)
 	return err
 }

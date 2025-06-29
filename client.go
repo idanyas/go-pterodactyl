@@ -1,10 +1,11 @@
 package pterodactyl
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/davidarkless/go-pterodactyl/api"
-	"github.com/davidarkless/go-pterodactyl/application"
+	"github.com/davidarkless/go-pterodactyl/appapi"
 	"github.com/davidarkless/go-pterodactyl/clientapi"
 	"github.com/davidarkless/go-pterodactyl/errors"
 	"io"
@@ -12,8 +13,15 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
+// ---------------------------------------------------------------------------
+// Public types
+// ---------------------------------------------------------------------------
+
+// KeyType distinguishes admin (Application) and user (Client) tokens.
+// Prefix verification in NewClient guards accidental mix‑ups.
 type KeyType int
 
 const (
@@ -21,46 +29,126 @@ const (
 	ClientKey
 )
 
+// Client is the root value of the SDK.  It is cheap to create but holds a
+// connection‑pooled *http.Client that ***must be reused*** instead of creating a
+// new one per request.
+//
+//   sdk, _ := pterodactyl.NewClient(baseURL, token, pterodactyl.ApplicationKey)
+//   nodes, _ := sdk.ApplicationAPI.Nodes.ListAll(ctx, 0)
+//
+// Client is ***safe for concurrent use*** by multiple goroutines.
+//
+// Functional options allow callers to insert their own *http.Client or
+// http.RoundTripper when tighter time‑outs, custom proxies, or tracing is
+// required.
+//   retryTr := retrace.NewRoundTripper(http.DefaultTransport)
+//   sdk, _ := pterodactyl.NewClient(baseURL, token, key,
+//       pterodactyl.WithTransport(retryTr))
+//
+// Any zero‑value field not set by an option receives a sensible default.
+//
+// Note: xAPIService fields are exported so that external code can embed or
+// stub them in tests.
+// ---------------------------------------------------------------------------
+
 type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
 
-	Application *application.Application
-	Client      *clientapi.ClientAPIService
+	ApplicationAPI *appapi.ApplicationAPIService
+	ClientAPI      *clientapi.ClientAPIService
 }
 
-func NewClient(baseURL, apiKey string, keyType KeyType) (*Client, error) {
+// Option configures a Client instance lazily.
+// Implemented via functional‑options pattern.
+// "With…" helpers live below.
+//
+// Options are **applied in the order passed** to NewClient; later options may
+// overwrite earlier ones.
+// ---------------------------------------------------------------------------
 
+type Option func(*Client)
+
+// WithHTTPClient replaces the default http.Client entirely.
+//
+//	c, _ := pterodactyl.NewClient(baseURL, key, t, pterodactyl.WithHTTPClient(my))
+func WithHTTPClient(hc *http.Client) Option {
+	return func(c *Client) { c.httpClient = hc }
+}
+
+// WithTransport swaps only the underlying RoundTripper, keeping other settings
+// (Timeout, Jar…) untouched.
+func WithTransport(rt http.RoundTripper) Option {
+	return func(c *Client) {
+		if c.httpClient == nil {
+			c.httpClient = &http.Client{Transport: rt}
+			return
+		}
+		c.httpClient.Transport = rt
+	}
+}
+
+// WithTimeout changes the http.Client.Timeout – handy for short‑lived CLI
+// programs.
+func WithTimeout(d time.Duration) Option {
+	return func(c *Client) {
+		if c.httpClient == nil {
+			c.httpClient = &http.Client{Timeout: d}
+			return
+		}
+		c.httpClient.Timeout = d
+	}
+}
+
+// NewClient validates the arguments, builds a reusable SDK instance and applies
+// any functional options.
+// baseURL must be scheme+host, apiKey must start with ptla_ or ptlc_.
+//
+// Recommended default http.Client timeout is 10s – callers can override via
+// WithTimeout.
+// ---------------------------------------------------------------------------
+
+func NewClient(baseURL, apiKey string, keyType KeyType, opts ...Option) (*Client, error) {
+	// ----- token sanity check -------------------------------------------------
 	if keyType == ApplicationKey && !strings.HasPrefix(apiKey, "ptla_") {
-		return nil, fmt.Errorf("invalid application key: key must start with 'ptla_'")
+		return nil, fmt.Errorf("invalid application key: must start with 'ptla_'")
 	}
 	if keyType == ClientKey && !strings.HasPrefix(apiKey, "ptlc_") {
-		return nil, fmt.Errorf("invalid client key: key must start with 'ptlc_'")
+		return nil, fmt.Errorf("invalid client key: must start with 'ptlc_'")
 	}
 
+	// ----- URL sanity check ---------------------------------------------------
 	if _, err := url.ParseRequestURI(baseURL); err != nil {
 		return nil, fmt.Errorf("invalid baseURL: %w", err)
 	}
-	client := &Client{
+
+	// ----- construct default instance ----------------------------------------
+	c := &Client{
 		baseURL:    baseURL,
 		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 
-	client.Application = &application.Application{}
-	client.Application.Users = application.NewUsersService(client)
-	client.Application.Nodes = application.NewNodesService(client)
-	client.Application.Locations = application.NewLocationService(client)
-	client.Application.Servers = application.NewServersService(client)
-	client.Application.Nests = application.NewNestsService(client)
+	// Apply caller‑supplied options
+	for _, o := range opts {
+		o(c)
+	}
 
-	client.Client = clientapi.NewClientAPI(client)
+	// ----- wire sub‑services --------------------------------------------------
+	c.ApplicationAPI = &appapi.ApplicationAPIService{}
+	c.ApplicationAPI.Users = appapi.NewUsersService(c)
+	c.ApplicationAPI.Nodes = appapi.NewNodesService(c)
+	c.ApplicationAPI.Locations = appapi.NewLocationService(c)
+	c.ApplicationAPI.Servers = appapi.NewServersService(c)
+	c.ApplicationAPI.Nests = appapi.NewNestsService(c)
 
-	return client, nil
+	c.ClientAPI = clientapi.NewClientAPI(c)
+
+	return c, nil
 }
 
-func (c *Client) NewRequest(method, endpoint string, body io.Reader, options *api.PaginationOptions) (*http.Request, error) {
+func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body io.Reader, options *api.PaginationOptions) (*http.Request, error) {
 
 	rel, err := url.Parse(endpoint)
 	if err != nil {
@@ -87,7 +175,7 @@ func (c *Client) NewRequest(method, endpoint string, body io.Reader, options *ap
 	}
 	fullURL := u.ResolveReference(rel)
 
-	req, err := http.NewRequest(method, fullURL.String(), body)
+	req, err := http.NewRequestWithContext(ctx, method, fullURL.String(), body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -102,7 +190,8 @@ func (c *Client) NewRequest(method, endpoint string, body io.Reader, options *ap
 	return req, nil
 }
 
-func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
+func (c *Client) Do(ctx context.Context, req *http.Request, v any) (*http.Response, error) {
+	req = req.WithContext(ctx)
 	res, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
