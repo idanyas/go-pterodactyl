@@ -2,6 +2,7 @@ package clientapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/davidarkless/go-pterodactyl/api"
@@ -19,15 +20,15 @@ func newSchedulesService(client requester.Requester, serverIdentifier string) *s
 }
 
 // List retrieves all schedules for the server. Note: tasks are not included in this list.
-func (s *schedulesService) List(options api.PaginationOptions) ([]*api.Schedule, *api.Meta, error) {
+func (s *schedulesService) List(ctx context.Context, options api.PaginationOptions) ([]*api.Schedule, *api.Meta, error) {
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules", s.serverIdentifier)
-	req, err := s.client.NewRequest("GET", endpoint, nil, &options)
+	req, err := s.client.NewRequest(ctx, "GET", endpoint, nil, &options)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create list schedules request: %w", err)
 	}
 
 	res := &api.PaginatedResponse[api.Schedule]{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -40,20 +41,20 @@ func (s *schedulesService) List(options api.PaginationOptions) ([]*api.Schedule,
 }
 
 // Create sends a request to create a new schedule.
-func (s *schedulesService) Create(options api.ScheduleCreateOptions) (*api.Schedule, error) {
+func (s *schedulesService) Create(ctx context.Context, options api.ScheduleCreateOptions) (*api.Schedule, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal create schedule options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules", s.serverIdentifier)
-	req, err := s.client.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
+	req, err := s.client.NewRequest(ctx, "POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new schedule request: %w", err)
 	}
 
 	res := &api.ScheduleResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -61,15 +62,15 @@ func (s *schedulesService) Create(options api.ScheduleCreateOptions) (*api.Sched
 }
 
 // Details retrieves details for a single schedule, including its tasks.
-func (s *schedulesService) Details(scheduleID int) (*api.Schedule, error) {
+func (s *schedulesService) Details(ctx context.Context, scheduleID int) (*api.Schedule, error) {
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules/%d", s.serverIdentifier, scheduleID)
-	req, err := s.client.NewRequest("GET", endpoint, nil, nil)
+	req, err := s.client.NewRequest(ctx, "GET", endpoint, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schedule details request: %w", err)
 	}
 
 	res := &api.ScheduleDetailResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -87,20 +88,20 @@ func (s *schedulesService) Details(scheduleID int) (*api.Schedule, error) {
 }
 
 // Update sends a request to modify an existing schedule.
-func (s *schedulesService) Update(scheduleID int, options api.ScheduleUpdateOptions) (*api.Schedule, error) {
+func (s *schedulesService) Update(ctx context.Context, scheduleID int, options api.ScheduleUpdateOptions) (*api.Schedule, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal update schedule options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules/%d", s.serverIdentifier, scheduleID)
-	req, err := s.client.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
+	req, err := s.client.NewRequest(ctx, "POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create update schedule request: %w", err)
 	}
 
 	res := &api.ScheduleResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -108,31 +109,31 @@ func (s *schedulesService) Update(scheduleID int, options api.ScheduleUpdateOpti
 }
 
 // Delete removes a schedule from the server.
-func (s *schedulesService) Delete(scheduleID int) error {
+func (s *schedulesService) Delete(ctx context.Context, scheduleID int) error {
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules/%d", s.serverIdentifier, scheduleID)
-	req, err := s.client.NewRequest("DELETE", endpoint, nil, nil)
+	req, err := s.client.NewRequest(ctx, "DELETE", endpoint, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create delete schedule request: %w", err)
 	}
-	_, err = s.client.Do(req, nil)
+	_, err = s.client.Do(ctx, req, nil)
 	return err
 }
 
 // CreateTask adds a new task to an existing schedule.
-func (s *schedulesService) CreateTask(scheduleID int, options api.TaskCreateOptions) (*api.Task, error) {
+func (s *schedulesService) CreateTask(ctx context.Context, scheduleID int, options api.TaskCreateOptions) (*api.Task, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal create task options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules/%d/tasks", s.serverIdentifier, scheduleID)
-	req, err := s.client.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
+	req, err := s.client.NewRequest(ctx, "POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new task request: %w", err)
 	}
 
 	res := &api.TaskResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -140,20 +141,20 @@ func (s *schedulesService) CreateTask(scheduleID int, options api.TaskCreateOpti
 }
 
 // UpdateTask modifies an existing task in a schedule.
-func (s *schedulesService) UpdateTask(scheduleID, taskID int, options api.TaskUpdateOptions) (*api.Task, error) {
+func (s *schedulesService) UpdateTask(ctx context.Context, scheduleID, taskID int, options api.TaskUpdateOptions) (*api.Task, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal update task options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules/%d/tasks/%d", s.serverIdentifier, scheduleID, taskID)
-	req, err := s.client.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
+	req, err := s.client.NewRequest(ctx, "POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create update task request: %w", err)
 	}
 
 	res := &api.TaskResponse{}
-	_, err = s.client.Do(req, res)
+	_, err = s.client.Do(ctx, req, res)
 	if err != nil {
 		return nil, err
 	}
@@ -161,12 +162,12 @@ func (s *schedulesService) UpdateTask(scheduleID, taskID int, options api.TaskUp
 }
 
 // DeleteTask removes a task from a schedule.
-func (s *schedulesService) DeleteTask(scheduleID, taskID int) error {
+func (s *schedulesService) DeleteTask(ctx context.Context, scheduleID, taskID int) error {
 	endpoint := fmt.Sprintf("/api/client/servers/%s/schedules/%d/tasks/%d", s.serverIdentifier, scheduleID, taskID)
-	req, err := s.client.NewRequest("DELETE", endpoint, nil, nil)
+	req, err := s.client.NewRequest(ctx, "DELETE", endpoint, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create delete task request: %w", err)
 	}
-	_, err = s.client.Do(req, nil)
+	_, err = s.client.Do(ctx, req, nil)
 	return err
 }

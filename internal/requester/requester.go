@@ -1,12 +1,13 @@
 package requester
 
 import (
+	"context"
 	"github.com/davidarkless/go-pterodactyl/api"
 	"io"
 	"net/http"
 )
 
 type Requester interface {
-	NewRequest(method, endpoint string, body io.Reader, options *api.PaginationOptions) (*http.Request, error)
-	Do(req *http.Request, v any) (*http.Response, error)
+	NewRequest(ctx context.Context, method, endpoint string, body io.Reader, options *api.PaginationOptions) (*http.Request, error)
+	Do(ctx context.Context, req *http.Request, v any) (*http.Response, error)
 }
