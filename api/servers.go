@@ -60,19 +60,23 @@ type ServerCreateOptions struct {
 	Egg         int    `json:"egg"`
 	DockerImage string `json:"docker_image"`
 	Startup     string `json:"startup"`
-	// Use pointers for environment variables so you can distinguish between
-	// an empty map and not providing the field at all.
-	Environment   *map[string]string  `json:"environment,omitempty"`
-	Limits        ServerLimits        `json:"limits"`
-	FeatureLimits ServerFeatureLimits `json:"feature_limits"`
-	// Use pointers for these allocation fields to allow the API to auto-assign.
+
+	LocationID *int `json:"location_id,omitempty"`
+
+	NodeID     *int `json:"node_id,omitempty"`
 	Allocation *struct {
 		Default    int   `json:"default"`
 		Additional []int `json:"additional,omitempty"`
 	} `json:"allocation,omitempty"`
-	ExternalID  *string `json:"external_id,omitempty"`
-	Description *string `json:"description,omitempty"`
+
+	Environment   *map[string]string  `json:"environment,omitempty"`
+	Limits        ServerLimits        `json:"limits"`
+	FeatureLimits ServerFeatureLimits `json:"feature_limits"`
+	ExternalID    *string             `json:"external_id,omitempty"`
+	Description   *string             `json:"description,omitempty"`
+
 	// StartWhenCreated specifies if the server should start after being installed.
+	// The json tag "start_on_completion" is correct for the Pterodactyl API.
 	StartWhenCreated *bool `json:"start_on_completion,omitempty"`
 }
 
