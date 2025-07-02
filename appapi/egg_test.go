@@ -3,6 +3,7 @@ package appapi
 import (
 	"context"
 	"fmt"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ func TestEggsService_List(t *testing.T) {
 		name           string
 		nestID         int
 		options        *api.PaginationOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -30,9 +31,9 @@ func TestEggsService_List(t *testing.T) {
 				Page:    1,
 				PerPage: 10,
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [
 						{
@@ -115,9 +116,9 @@ func TestEggsService_List(t *testing.T) {
 			name:    "Successful list without pagination",
 			nestID:  2,
 			options: nil,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -140,9 +141,9 @@ func TestEggsService_List(t *testing.T) {
 			name:    "API error response",
 			nestID:  3,
 			options: &api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -158,8 +159,8 @@ func TestEggsService_List(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := NewEggsService(mock, tc.nestID)
@@ -184,29 +185,29 @@ func TestEggsService_List(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 
-			// If we have pagination options, verify they were passed correctly
+			// If we have pagination Options, verify they were passed correctly
 			if tc.options != nil {
-				if req.options == nil {
-					t.Error("expected pagination options to be passed")
-				} else if req.options.Page != tc.options.Page {
-					t.Errorf("expected page %d, got %d", tc.options.Page, req.options.Page)
+				if req.Options == nil {
+					t.Error("expected pagination Options to be passed")
+				} else if req.Options.Page != tc.options.Page {
+					t.Errorf("expected page %d, got %d", tc.options.Page, req.Options.Page)
 				}
 			}
 
-			// Verify meta is present for successful responses
+			// Verify meta is present for successful Responses
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
 			}
@@ -234,7 +235,7 @@ func TestEggsService_ListAll(t *testing.T) {
 	testCases := []struct {
 		name          string
 		nestID        int
-		mockResponses []mockResponse
+		mockResponses []testutil.MockResponse
 		expectedError bool
 		expectedCount int
 		expectedCalls int
@@ -242,10 +243,10 @@ func TestEggsService_ListAll(t *testing.T) {
 		{
 			name:   "Single page of results",
 			nestID: 1,
-			mockResponses: []mockResponse{
+			mockResponses: []testutil.MockResponse{
 				{
-					statusCode: 200,
-					body: []byte(`{
+					StatusCode: 200,
+					Body: []byte(`{
 						"object": "list",
 						"data": [
 							{
@@ -286,10 +287,10 @@ func TestEggsService_ListAll(t *testing.T) {
 		{
 			name:   "Multiple pages of results",
 			nestID: 2,
-			mockResponses: []mockResponse{
+			mockResponses: []testutil.MockResponse{
 				{
-					statusCode: 200,
-					body: []byte(`{
+					StatusCode: 200,
+					Body: []byte(`{
 						"object": "list",
 						"data": [
 							{
@@ -321,8 +322,8 @@ func TestEggsService_ListAll(t *testing.T) {
 					}`),
 				},
 				{
-					statusCode: 200,
-					body: []byte(`{
+					StatusCode: 200,
+					Body: []byte(`{
 						"object": "list",
 						"data": [
 							{
@@ -361,10 +362,10 @@ func TestEggsService_ListAll(t *testing.T) {
 		{
 			name:   "API error on first page",
 			nestID: 3,
-			mockResponses: []mockResponse{
+			mockResponses: []testutil.MockResponse{
 				{
-					statusCode: 500,
-					body: []byte(`{
+					StatusCode: 500,
+					Body: []byte(`{
 						"errors": [{
 							"code": "InternalServerError",
 							"status": "500",
@@ -380,8 +381,8 @@ func TestEggsService_ListAll(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: tc.mockResponses,
+			mock := &testutil.MockRequester{
+				Responses: tc.mockResponses,
 			}
 
 			service := NewEggsService(mock, tc.nestID)
@@ -406,19 +407,19 @@ func TestEggsService_ListAll(t *testing.T) {
 			}
 
 			// Check number of API calls
-			if len(mock.requests) != tc.expectedCalls {
-				t.Errorf("expected %d API calls, got %d", tc.expectedCalls, len(mock.requests))
+			if len(mock.Requests) != tc.expectedCalls {
+				t.Errorf("expected %d API calls, got %d", tc.expectedCalls, len(mock.Requests))
 			}
 
-			// Verify all requests were to the correct endpoint
-			for i, req := range mock.requests {
+			// Verify all Requests were to the correct Endpoint
+			for i, req := range mock.Requests {
 				expectedPath := fmt.Sprintf("/api/application/nests/%d/eggs", tc.nestID)
-				if req.endpoint != expectedPath {
-					t.Errorf("request %d: expected path %s, got %s", i, expectedPath, req.endpoint)
+				if req.Endpoint != expectedPath {
+					t.Errorf("request %d: expected path %s, got %s", i, expectedPath, req.Endpoint)
 				}
 
-				if req.method != "GET" {
-					t.Errorf("request %d: expected method GET, got %s", i, req.method)
+				if req.Method != "GET" {
+					t.Errorf("request %d: expected Method GET, got %s", i, req.Method)
 				}
 			}
 		})
@@ -432,7 +433,7 @@ func TestEggsService_Get(t *testing.T) {
 		name           string
 		nestID         int
 		eggID          int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -441,9 +442,9 @@ func TestEggsService_Get(t *testing.T) {
 			name:   "Successful get",
 			nestID: 1,
 			eggID:  123,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "egg",
 					"attributes": {
 						"id": 123,
@@ -482,9 +483,9 @@ func TestEggsService_Get(t *testing.T) {
 			name:   "Egg not found",
 			nestID: 2,
 			eggID:  999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -500,9 +501,9 @@ func TestEggsService_Get(t *testing.T) {
 			name:   "Nest not found",
 			nestID: 999,
 			eggID:  123,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -518,8 +519,8 @@ func TestEggsService_Get(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := NewEggsService(mock, tc.nestID)
@@ -539,17 +540,17 @@ func TestEggsService_Get(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 
 			// Verify egg data
@@ -575,12 +576,12 @@ func TestEggsService_Integration(t *testing.T) {
 
 	// Test that the service correctly handles the nestID in all operations
 	nestID := 42
-	mock := &mockRequester{
-		responses: []mockResponse{
+	mock := &testutil.MockRequester{
+		Responses: []testutil.MockResponse{
 			// List response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -596,8 +597,8 @@ func TestEggsService_Integration(t *testing.T) {
 			},
 			// ListAll response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -613,8 +614,8 @@ func TestEggsService_Integration(t *testing.T) {
 			},
 			// Get response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "egg",
 					"attributes": {
 						"id": 123,
@@ -654,17 +655,17 @@ func TestEggsService_Integration(t *testing.T) {
 		t.Fatalf("Get failed: %v", err)
 	}
 
-	// Verify all requests used the correct nestID
+	// Verify all Requests used the correct nestID
 	expectedBasePath := fmt.Sprintf("/api/application/nests/%d/eggs", nestID)
-	for i, req := range mock.requests {
-		if !strings.HasPrefix(req.endpoint, expectedBasePath) {
-			t.Errorf("request %d: expected endpoint to start with %s, got %s", i, expectedBasePath, req.endpoint)
+	for i, req := range mock.Requests {
+		if !strings.HasPrefix(req.Endpoint, expectedBasePath) {
+			t.Errorf("request %d: expected Endpoint to start with %s, got %s", i, expectedBasePath, req.Endpoint)
 		}
 	}
 
-	// Verify we made exactly 3 requests
-	if len(mock.requests) != 3 {
-		t.Errorf("expected 3 requests, got %d", len(mock.requests))
+	// Verify we made exactly 3 Requests
+	if len(mock.Requests) != 3 {
+		t.Errorf("expected 3 Requests, got %d", len(mock.Requests))
 	}
 }
 
@@ -675,7 +676,7 @@ func TestEggsService_EdgeCases(t *testing.T) {
 		name          string
 		nestID        int
 		eggID         int
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		description   string
 	}{
@@ -683,9 +684,9 @@ func TestEggsService_EdgeCases(t *testing.T) {
 			name:   "Zero nest ID",
 			nestID: 0,
 			eggID:  123,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "egg",
 					"attributes": {
 						"id": 123,
@@ -709,9 +710,9 @@ func TestEggsService_EdgeCases(t *testing.T) {
 			name:   "Negative egg ID",
 			nestID: 1,
 			eggID:  -1,
-			mockResponse: mockResponse{
-				statusCode: 400,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 400,
+				Body: []byte(`{
 					"errors": [{
 						"code": "BadRequestHttpException",
 						"status": "400",
@@ -726,9 +727,9 @@ func TestEggsService_EdgeCases(t *testing.T) {
 			name:   "Zero egg ID",
 			nestID: 1,
 			eggID:  0,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -743,8 +744,8 @@ func TestEggsService_EdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := NewEggsService(mock, tc.nestID)
@@ -769,11 +770,11 @@ func TestEggsService_DataValidation(t *testing.T) {
 	t.Parallel()
 
 	// Test that egg data is properly parsed
-	mock := &mockRequester{
-		responses: []mockResponse{
+	mock := &testutil.MockRequester{
+		Responses: []testutil.MockResponse{
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "egg",
 					"attributes": {
 						"id": 123,
@@ -858,7 +859,7 @@ func TestEggsService_Constructor(t *testing.T) {
 	t.Parallel()
 
 	// Test the constructor function
-	mock := &mockRequester{}
+	mock := &testutil.MockRequester{}
 	nestID := 42
 
 	service := NewEggsService(mock, nestID)
@@ -869,11 +870,11 @@ func TestEggsService_Constructor(t *testing.T) {
 
 	// Verify the service has the correct nestID
 	// Note: We can't directly access the nestID field since it's unexported,
-	// but we can verify it's working by making a request and checking the endpoint
-	mock.responses = []mockResponse{
+	// but we can verify it's working by making a request and checking the Endpoint
+	mock.Responses = []testutil.MockResponse{
 		{
-			statusCode: 200,
-			body: []byte(`{
+			StatusCode: 200,
+			Body: []byte(`{
 				"object": "list",
 				"data": [],
 				"meta": {
@@ -894,12 +895,12 @@ func TestEggsService_Constructor(t *testing.T) {
 		t.Fatalf("List failed: %v", err)
 	}
 
-	if len(mock.requests) != 1 {
-		t.Fatalf("expected 1 request, got %d", len(mock.requests))
+	if len(mock.Requests) != 1 {
+		t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 	}
 
 	expectedPath := fmt.Sprintf("/api/application/nests/%d/eggs", nestID)
-	if mock.requests[0].endpoint != expectedPath {
-		t.Errorf("expected path %s, got %s", expectedPath, mock.requests[0].endpoint)
+	if mock.Requests[0].Endpoint != expectedPath {
+		t.Errorf("expected path %s, got %s", expectedPath, mock.Requests[0].Endpoint)
 	}
 }

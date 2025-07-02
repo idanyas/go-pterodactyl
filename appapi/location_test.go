@@ -3,6 +3,7 @@ package appapi
 import (
 	"context"
 	"fmt"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ func TestLocationService_List(t *testing.T) {
 	testCases := []struct {
 		name           string
 		options        *api.PaginationOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -24,9 +25,9 @@ func TestLocationService_List(t *testing.T) {
 		{
 			name:    "Successful list with pagination",
 			options: &api.PaginationOptions{Page: 1, PerPage: 10},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [
 						{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}},
@@ -43,9 +44,9 @@ func TestLocationService_List(t *testing.T) {
 		{
 			name:    "Successful list without pagination",
 			options: nil,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
 			},
 			expectedError:  false,
 			expectedCount:  0,
@@ -55,9 +56,9 @@ func TestLocationService_List(t *testing.T) {
 		{
 			name:    "API error response",
 			options: &api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -66,7 +67,7 @@ func TestLocationService_List(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewLocationService(mock)
 			locations, meta, err := service.List(context.Background(), tc.options)
 			if tc.expectedError {
@@ -81,15 +82,15 @@ func TestLocationService_List(t *testing.T) {
 			if len(locations) != tc.expectedCount {
 				t.Errorf("expected %d locations, got %d", tc.expectedCount, len(locations))
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
@@ -109,7 +110,7 @@ func TestLocationService_List(t *testing.T) {
 
 func TestLocationService_ListAll(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{responses: []mockResponse{{statusCode: 200, body: []byte(`{"object": "list", "data": [{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 100, "current_page": 1, "total_pages": 1}}}}`)}}}
+	mock := &testutil.MockRequester{Responses: []testutil.MockResponse{{StatusCode: 200, Body: []byte(`{"object": "list", "data": [{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 100, "current_page": 1, "total_pages": 1}}}}`)}}}
 	service := NewLocationService(mock)
 	locations, err := service.ListAll(context.Background())
 	if err != nil {
@@ -128,7 +129,7 @@ func TestLocationService_Get(t *testing.T) {
 	testCases := []struct {
 		name           string
 		id             int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -136,9 +137,9 @@ func TestLocationService_Get(t *testing.T) {
 		{
 			name: "Successful get",
 			id:   1,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "GET",
@@ -147,9 +148,9 @@ func TestLocationService_Get(t *testing.T) {
 		{
 			name: "Location not found",
 			id:   999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -158,7 +159,7 @@ func TestLocationService_Get(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewLocationService(mock)
 			location, err := service.Get(context.Background(), tc.id)
 			if tc.expectedError {
@@ -170,15 +171,15 @@ func TestLocationService_Get(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if location == nil {
 				t.Error("expected location to be non-nil")
@@ -199,16 +200,16 @@ func TestLocationService_Create(t *testing.T) {
 	testCases := []struct {
 		name          string
 		options       api.LocationCreateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
 		{
 			name:    "Successful creation",
 			options: api.LocationCreateOptions{ShortCode: "us", Description: "United States"},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError: false,
 			expectedBody:  `{"short":"us","long":"United States"}`,
@@ -216,9 +217,9 @@ func TestLocationService_Create(t *testing.T) {
 		{
 			name:    "API error response",
 			options: api.LocationCreateOptions{ShortCode: "", Description: ""},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
 			},
 			expectedError: true,
 			expectedBody:  `{"short":"","long":""}`,
@@ -226,7 +227,7 @@ func TestLocationService_Create(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewLocationService(mock)
 			location, err := service.Create(context.Background(), tc.options)
 			if tc.expectedError {
@@ -238,19 +239,19 @@ func TestLocationService_Create(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != "POST" {
-				t.Errorf("expected method POST, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "POST" {
+				t.Errorf("expected Method POST, got %s", req.Method)
 			}
-			if req.endpoint != "/api/application/locations" {
-				t.Errorf("expected path /api/application/locations, got %s", req.endpoint)
+			if req.Endpoint != "/api/application/locations" {
+				t.Errorf("expected path /api/application/locations, got %s", req.Endpoint)
 			}
-			bodyStr := strings.TrimSpace(string(req.body))
+			bodyStr := strings.TrimSpace(string(req.Body))
 			if bodyStr != tc.expectedBody {
-				t.Errorf("expected body %s, got %s", tc.expectedBody, bodyStr)
+				t.Errorf("expected Body %s, got %s", tc.expectedBody, bodyStr)
 			}
 			if location == nil {
 				t.Error("expected location to be non-nil")
@@ -272,7 +273,7 @@ func TestLocationService_Update(t *testing.T) {
 		name          string
 		id            int
 		options       api.LocationUpdateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
@@ -280,9 +281,9 @@ func TestLocationService_Update(t *testing.T) {
 			name:    "Successful update",
 			id:      1,
 			options: api.LocationUpdateOptions{ShortCode: "us", Description: "USA"},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "USA", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-02T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "USA", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-02T00:00:00Z"}}`),
 			},
 			expectedError: false,
 			expectedBody:  `{"short":"us","long":"USA"}`,
@@ -291,9 +292,9 @@ func TestLocationService_Update(t *testing.T) {
 			name:    "API error response",
 			id:      2,
 			options: api.LocationUpdateOptions{ShortCode: "", Description: ""},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
 			},
 			expectedError: true,
 			expectedBody:  `{"short":"","long":""}`,
@@ -301,7 +302,7 @@ func TestLocationService_Update(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewLocationService(mock)
 			location, err := service.Update(context.Background(), tc.id, tc.options)
 			if tc.expectedError {
@@ -313,20 +314,20 @@ func TestLocationService_Update(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != "PATCH" {
-				t.Errorf("expected method PATCH, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "PATCH" {
+				t.Errorf("expected Method PATCH, got %s", req.Method)
 			}
 			expectedPath := fmt.Sprintf("/api/application/locations/%d", tc.id)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected path %s, got %s", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, req.Endpoint)
 			}
-			bodyStr := strings.TrimSpace(string(req.body))
+			bodyStr := strings.TrimSpace(string(req.Body))
 			if bodyStr != tc.expectedBody {
-				t.Errorf("expected body %s, got %s", tc.expectedBody, bodyStr)
+				t.Errorf("expected Body %s, got %s", tc.expectedBody, bodyStr)
 			}
 			if location == nil {
 				t.Error("expected location to be non-nil")
@@ -347,7 +348,7 @@ func TestLocationService_Delete(t *testing.T) {
 	testCases := []struct {
 		name           string
 		id             int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -355,9 +356,9 @@ func TestLocationService_Delete(t *testing.T) {
 		{
 			name: "Successful deletion",
 			id:   1,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError:  false,
 			expectedMethod: "DELETE",
@@ -366,9 +367,9 @@ func TestLocationService_Delete(t *testing.T) {
 		{
 			name: "Location not found",
 			id:   999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "DELETE",
@@ -377,7 +378,7 @@ func TestLocationService_Delete(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewLocationService(mock)
 			err := service.Delete(context.Background(), tc.id)
 			if tc.expectedError {
@@ -389,16 +390,16 @@ func TestLocationService_Delete(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 			expectedPath := fmt.Sprintf("/api/application/locations/%d", tc.id)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected path %s, got %s", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -406,7 +407,7 @@ func TestLocationService_Delete(t *testing.T) {
 
 func TestLocationService_DataValidation(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{responses: []mockResponse{{statusCode: 200, body: []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T12:00:00Z", "updated_at": "2023-01-02T12:00:00Z"}}`)}}}
+	mock := &testutil.MockRequester{Responses: []testutil.MockResponse{{StatusCode: 200, Body: []byte(`{"object": "location", "attributes": {"id": 1, "short": "us", "long": "United States", "created_at": "2023-01-01T12:00:00Z", "updated_at": "2023-01-02T12:00:00Z"}}`)}}}
 	service := NewLocationService(mock)
 	location, err := service.Get(context.Background(), 1)
 	if err != nil {

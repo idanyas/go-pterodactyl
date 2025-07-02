@@ -52,7 +52,7 @@ func (s *serversService) GetExternal(ctx context.Context, externalID string) (*a
 func (s *serversService) Create(ctx context.Context, options api.ServerCreateOptions) (*api.Server, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal create server options: %w", err)
+		return nil, fmt.Errorf("failed to marshal create server Options: %w", err)
 	}
 	req, err := s.client.NewRequest(ctx, "POST", "/api/application/servers", bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {

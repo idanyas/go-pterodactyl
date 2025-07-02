@@ -33,7 +33,7 @@ func (s *LocationService) Get(ctx context.Context, id int) (*api.Location, error
 func (s *LocationService) Create(ctx context.Context, options api.LocationCreateOptions) (*api.Location, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal create location options: %w", err)
+		return nil, fmt.Errorf("failed to marshal create location Options: %w", err)
 	}
 
 	req, err := s.client.NewRequest(ctx, "POST", "/api/application/locations", bytes.NewBuffer(jsonBytes), nil)
@@ -53,7 +53,7 @@ func (s *LocationService) Create(ctx context.Context, options api.LocationCreate
 func (s *LocationService) Update(ctx context.Context, id int, options api.LocationUpdateOptions) (*api.Location, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal update location options: %w", err)
+		return nil, fmt.Errorf("failed to marshal update location Options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/application/locations/%d", id)

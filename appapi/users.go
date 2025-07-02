@@ -51,7 +51,7 @@ func (s *usersService) GetExternalID(ctx context.Context, externalId string) (*a
 func (s *usersService) Create(ctx context.Context, options api.UserCreateOptions) (*api.User, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal create user options: %w", err)
+		return nil, fmt.Errorf("failed to marshal create user Options: %w", err)
 	}
 
 	req, err := s.client.NewRequest(ctx, "POST", "/api/application/users", bytes.NewBuffer(jsonBytes), nil)
@@ -70,7 +70,7 @@ func (s *usersService) Create(ctx context.Context, options api.UserCreateOptions
 func (s *usersService) Update(ctx context.Context, id int, options api.UserUpdateOptions) (*api.User, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal update user options: %w", err)
+		return nil, fmt.Errorf("failed to marshal update user Options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/application/users/%d", id)

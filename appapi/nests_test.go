@@ -2,6 +2,7 @@ package appapi
 
 import (
 	"context"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ func TestNestsService_List(t *testing.T) {
 	testCases := []struct {
 		name           string
 		options        *api.PaginationOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -22,9 +23,9 @@ func TestNestsService_List(t *testing.T) {
 		{
 			name:    "Successful list with pagination",
 			options: &api.PaginationOptions{Page: 1, PerPage: 10},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [
 						{"object": "nest", "attributes": {"id": 1, "uuid": "uuid-1", "author": "author1", "name": "Nest1", "description": "desc1", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}},
@@ -41,9 +42,9 @@ func TestNestsService_List(t *testing.T) {
 		{
 			name:    "Successful list without pagination",
 			options: nil,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
 			},
 			expectedError:  false,
 			expectedCount:  0,
@@ -53,9 +54,9 @@ func TestNestsService_List(t *testing.T) {
 		{
 			name:    "API error response",
 			options: &api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -64,7 +65,7 @@ func TestNestsService_List(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNestsService(mock)
 			nests, meta, err := service.List(context.Background(), tc.options)
 			if tc.expectedError {
@@ -79,15 +80,15 @@ func TestNestsService_List(t *testing.T) {
 			if len(nests) != tc.expectedCount {
 				t.Errorf("expected %d nests, got %d", tc.expectedCount, len(nests))
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
@@ -107,7 +108,7 @@ func TestNestsService_List(t *testing.T) {
 
 func TestNestsService_ListAll(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{responses: []mockResponse{{statusCode: 200, body: []byte(`{"object": "list", "data": [{"object": "nest", "attributes": {"id": 1, "uuid": "uuid-1", "author": "author1", "name": "Nest1", "description": "desc1", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 100, "current_page": 1, "total_pages": 1}}}}`)}}}
+	mock := &testutil.MockRequester{Responses: []testutil.MockResponse{{StatusCode: 200, Body: []byte(`{"object": "list", "data": [{"object": "nest", "attributes": {"id": 1, "uuid": "uuid-1", "author": "author1", "name": "Nest1", "description": "desc1", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 100, "current_page": 1, "total_pages": 1}}}}`)}}}
 	service := NewNestsService(mock)
 	nests, err := service.ListAll(context.Background())
 	if err != nil {
@@ -126,7 +127,7 @@ func TestNestsService_Get(t *testing.T) {
 	testCases := []struct {
 		name           string
 		id             int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -134,9 +135,9 @@ func TestNestsService_Get(t *testing.T) {
 		{
 			name: "Successful get",
 			id:   1,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "nest", "attributes": {"id": 1, "uuid": "uuid-1", "author": "author1", "name": "Nest1", "description": "desc1", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "nest", "attributes": {"id": 1, "uuid": "uuid-1", "author": "author1", "name": "Nest1", "description": "desc1", "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "GET",
@@ -145,9 +146,9 @@ func TestNestsService_Get(t *testing.T) {
 		{
 			name: "Nest not found",
 			id:   999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -156,7 +157,7 @@ func TestNestsService_Get(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNestsService(mock)
 			nest, err := service.Get(context.Background(), tc.id)
 			if tc.expectedError {
@@ -168,15 +169,15 @@ func TestNestsService_Get(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if nest == nil {
 				t.Error("expected nest to be non-nil")
@@ -194,7 +195,7 @@ func TestNestsService_Get(t *testing.T) {
 
 func TestNestsService_Eggs(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{}
+	mock := &testutil.MockRequester{}
 	service := NewNestsService(mock)
 	eggsService := service.Eggs(42)
 	if eggsService == nil {
@@ -204,7 +205,7 @@ func TestNestsService_Eggs(t *testing.T) {
 
 func TestNestsService_DataValidation(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{responses: []mockResponse{{statusCode: 200, body: []byte(`{"object": "nest", "attributes": {"id": 1, "uuid": "uuid-1", "author": "author1", "name": "Nest1", "description": "desc1", "created_at": "2023-01-01T12:00:00Z", "updated_at": "2023-01-02T12:00:00Z"}}`)}}}
+	mock := &testutil.MockRequester{Responses: []testutil.MockResponse{{StatusCode: 200, Body: []byte(`{"object": "nest", "attributes": {"id": 1, "uuid": "uuid-1", "author": "author1", "name": "Nest1", "description": "desc1", "created_at": "2023-01-01T12:00:00Z", "updated_at": "2023-01-02T12:00:00Z"}}`)}}}
 	service := NewNestsService(mock)
 	nest, err := service.Get(context.Background(), 1)
 	if err != nil {

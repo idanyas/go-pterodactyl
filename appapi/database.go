@@ -34,7 +34,7 @@ func (s *databaseService) Get(ctx context.Context, databaseID int) (*api.Databas
 func (s *databaseService) Create(ctx context.Context, options api.DatabaseCreateOptions) (*api.Database, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal create database options: %w", err)
+		return nil, fmt.Errorf("failed to marshal create database Options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/application/servers/%d/databases", s.serverID)
@@ -51,7 +51,7 @@ func (s *databaseService) Create(ctx context.Context, options api.DatabaseCreate
 	return response.Attributes, nil
 }
 
-// ResetPassword requests a password reset for a specific database.
+// ResetPassword Requests a password reset for a specific database.
 func (s *databaseService) ResetPassword(ctx context.Context, databaseID int) error {
 	endpoint := fmt.Sprintf("/api/application/servers/%d/databases/%d/reset-password", s.serverID, databaseID)
 	req, err := s.client.NewRequest(ctx, "POST", endpoint, nil, nil)
@@ -59,7 +59,7 @@ func (s *databaseService) ResetPassword(ctx context.Context, databaseID int) err
 		return fmt.Errorf("failed to create reset database password request: %w", err)
 	}
 
-	// This endpoint returns 204 No Content.
+	// This Endpoint returns 204 No Content.
 	_, err = s.client.Do(ctx, req, nil)
 	return err
 }
