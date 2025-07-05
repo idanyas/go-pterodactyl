@@ -3,6 +3,7 @@ package appapi
 import (
 	"context"
 	"fmt"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ func TestNodesService_List(t *testing.T) {
 	testCases := []struct {
 		name           string
 		options        *api.PaginationOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -24,9 +25,9 @@ func TestNodesService_List(t *testing.T) {
 		{
 			name:    "Successful list with pagination",
 			options: &api.PaginationOptions{Page: 1, PerPage: 10},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{"object": "list", "data": [
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{"object": "list", "data": [
 					{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 10, "current_page": 1, "total_pages": 1}}}`),
 			},
 			expectedError:  false,
@@ -37,9 +38,9 @@ func TestNodesService_List(t *testing.T) {
 		{
 			name:    "API error response",
 			options: &api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -48,7 +49,7 @@ func TestNodesService_List(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNodesService(mock)
 			nodes, meta, err := service.List(context.Background(), tc.options)
 			if tc.expectedError {
@@ -63,15 +64,15 @@ func TestNodesService_List(t *testing.T) {
 			if len(nodes) != tc.expectedCount {
 				t.Errorf("expected %d nodes, got %d", tc.expectedCount, len(nodes))
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
@@ -91,7 +92,7 @@ func TestNodesService_List(t *testing.T) {
 
 func TestNodesService_ListAll(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{responses: []mockResponse{{statusCode: 200, body: []byte(`{"object": "list", "data": [{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 100, "current_page": 1, "total_pages": 1}}}}`)}}}
+	mock := &testutil.MockRequester{Responses: []testutil.MockResponse{{StatusCode: 200, Body: []byte(`{"object": "list", "data": [{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 100, "current_page": 1, "total_pages": 1}}}}`)}}}
 	service := NewNodesService(mock)
 	nodes, err := service.ListAll(context.Background())
 	if err != nil {
@@ -110,7 +111,7 @@ func TestNodesService_Get(t *testing.T) {
 	testCases := []struct {
 		name           string
 		id             int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -118,9 +119,9 @@ func TestNodesService_Get(t *testing.T) {
 		{
 			name: "Successful get",
 			id:   1,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "GET",
@@ -129,9 +130,9 @@ func TestNodesService_Get(t *testing.T) {
 		{
 			name: "Node not found",
 			id:   999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -140,7 +141,7 @@ func TestNodesService_Get(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNodesService(mock)
 			node, err := service.Get(context.Background(), tc.id)
 			if tc.expectedError {
@@ -152,15 +153,15 @@ func TestNodesService_Get(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if node == nil {
 				t.Error("expected node to be non-nil")
@@ -181,16 +182,16 @@ func TestNodesService_GetConfiguration(t *testing.T) {
 	testCases := []struct {
 		name          string
 		nodeID        int
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedPath  string
 	}{
 		{
 			name:   "Successful get configuration",
 			nodeID: 1,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"debug":true,"uuid":"uuid-1","token_id":"tid","token":"tok","api":{"host":"127.0.0.1","port":8080,"ssl":{"enabled":true,"cert":"/cert","key":"/key"},"upload_limit":100},"system":{"data":"/srv/daemon","sftp":{"bind_port":2022}},"remote":"https://remote"}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"debug":true,"uuid":"uuid-1","token_id":"tid","token":"tok","api":{"host":"127.0.0.1","port":8080,"ssl":{"enabled":true,"cert":"/cert","key":"/key"},"upload_limit":100},"system":{"data":"/srv/daemon","sftp":{"bind_port":2022}},"remote":"https://remote"}`),
 			},
 			expectedError: false,
 			expectedPath:  "/api/application/nodes/1/configuration",
@@ -198,9 +199,9 @@ func TestNodesService_GetConfiguration(t *testing.T) {
 		{
 			name:   "Node not found",
 			nodeID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError: true,
 			expectedPath:  "/api/application/nodes/999/configuration",
@@ -208,7 +209,7 @@ func TestNodesService_GetConfiguration(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNodesService(mock)
 			config, err := service.GetConfiguration(context.Background(), tc.nodeID)
 			if tc.expectedError {
@@ -223,12 +224,12 @@ func TestNodesService_GetConfiguration(t *testing.T) {
 			if config == nil {
 				t.Error("expected config to be non-nil")
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			req := mock.Requests[0]
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -242,7 +243,7 @@ func TestNodesService_Create(t *testing.T) {
 	testCases := []struct {
 		name          string
 		options       api.NodeCreateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
@@ -251,9 +252,9 @@ func TestNodesService_Create(t *testing.T) {
 			options: api.NodeCreateOptions{
 				Name: "Node1", LocationID: 1, FQDN: "node1.example.com", Scheme: "https", Memory: 2048, MemoryOverallocate: 0, Disk: 10000, DiskOverallocate: 0, DaemonSFTP: 2022, DaemonListen: 8080, Description: &desc, BehindProxy: &behindProxy, MaintenanceMode: &maint, UploadSize: nil,
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError: false,
 			expectedBody:  `{"name":"Node1","location_id":1,"fqdn":"node1.example.com","scheme":"https","memory":2048,"memory_overallocate":0,"disk":10000,"disk_overallocate":0,"daemon_sftp":2022,"daemon_listen":8080,"description":"desc","behind_proxy":true,"maintenance_mode":false}`,
@@ -261,9 +262,9 @@ func TestNodesService_Create(t *testing.T) {
 		{
 			name:    "API error response",
 			options: api.NodeCreateOptions{Name: "", LocationID: 0, FQDN: "", Scheme: "", Memory: 0, MemoryOverallocate: 0, Disk: 0, DiskOverallocate: 0, DaemonSFTP: 0, DaemonListen: 0},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
 			},
 			expectedError: true,
 			expectedBody:  `{"name":"","location_id":0,"fqdn":"","scheme":"","memory":0,"memory_overallocate":0,"disk":0,"disk_overallocate":0,"daemon_sftp":0,"daemon_listen":0}`,
@@ -271,7 +272,7 @@ func TestNodesService_Create(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNodesService(mock)
 			node, err := service.Create(context.Background(), tc.options)
 			if tc.expectedError {
@@ -283,19 +284,19 @@ func TestNodesService_Create(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != "POST" {
-				t.Errorf("expected method POST, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "POST" {
+				t.Errorf("expected Method POST, got %s", req.Method)
 			}
-			if req.endpoint != "/api/application/nodes" {
-				t.Errorf("expected path /api/application/nodes, got %s", req.endpoint)
+			if req.Endpoint != "/api/application/nodes" {
+				t.Errorf("expected path /api/application/nodes, got %s", req.Endpoint)
 			}
-			bodyStr := strings.TrimSpace(string(req.body))
+			bodyStr := strings.TrimSpace(string(req.Body))
 			if bodyStr != tc.expectedBody {
-				t.Errorf("expected body %s, got %s", tc.expectedBody, bodyStr)
+				t.Errorf("expected Body %s, got %s", tc.expectedBody, bodyStr)
 			}
 			if node == nil {
 				t.Error("expected node to be non-nil")
@@ -312,7 +313,7 @@ func TestNodesService_Update(t *testing.T) {
 		name          string
 		id            int
 		options       api.NodeUpdateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
@@ -320,9 +321,9 @@ func TestNodesService_Update(t *testing.T) {
 			name:    "Successful update",
 			id:      1,
 			options: api.NodeUpdateOptions{Name: "Node2", Description: &desc, MaintenanceMode: &maint},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node2", "location_id": 1, "fqdn": "node2.example.com", "scheme": "https", "memory": 4096, "memory_overallocate": 0, "disk": 20000, "disk_overallocate": 0, "daemon_listen": 8081, "daemon_sftp": 2023, "daemon_base": "/srv/daemon", "maintenance_mode": true, "upload_size": 200, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-02T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node2", "location_id": 1, "fqdn": "node2.example.com", "scheme": "https", "memory": 4096, "memory_overallocate": 0, "disk": 20000, "disk_overallocate": 0, "daemon_listen": 8081, "daemon_sftp": 2023, "daemon_base": "/srv/daemon", "maintenance_mode": true, "upload_size": 200, "created_at": "2023-01-01T00:00:00Z", "updated_at": "2023-01-02T00:00:00Z"}}`),
 			},
 			expectedError: false,
 			expectedBody:  `{"name":"Node2","description":"desc2","maintenance_mode":true}`,
@@ -331,9 +332,9 @@ func TestNodesService_Update(t *testing.T) {
 			name:    "API error response",
 			id:      2,
 			options: api.NodeUpdateOptions{Name: ""},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationHttpException", "status": "422", "detail": "Invalid data."}]}`),
 			},
 			expectedError: true,
 			expectedBody:  `{"name":""}`,
@@ -341,7 +342,7 @@ func TestNodesService_Update(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNodesService(mock)
 			node, err := service.Update(context.Background(), tc.id, tc.options)
 			if tc.expectedError {
@@ -353,20 +354,20 @@ func TestNodesService_Update(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != "PATCH" {
-				t.Errorf("expected method PATCH, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "PATCH" {
+				t.Errorf("expected Method PATCH, got %s", req.Method)
 			}
 			expectedPath := fmt.Sprintf("/api/application/nodes/%d", tc.id)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected path %s, got %s", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, req.Endpoint)
 			}
-			bodyStr := strings.TrimSpace(string(req.body))
+			bodyStr := strings.TrimSpace(string(req.Body))
 			if bodyStr != tc.expectedBody {
-				t.Errorf("expected body %s, got %s", tc.expectedBody, bodyStr)
+				t.Errorf("expected Body %s, got %s", tc.expectedBody, bodyStr)
 			}
 			if node == nil {
 				t.Error("expected node to be non-nil")
@@ -380,7 +381,7 @@ func TestNodesService_Delete(t *testing.T) {
 	testCases := []struct {
 		name           string
 		id             int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -388,9 +389,9 @@ func TestNodesService_Delete(t *testing.T) {
 		{
 			name: "Successful deletion",
 			id:   1,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError:  false,
 			expectedMethod: "DELETE",
@@ -399,9 +400,9 @@ func TestNodesService_Delete(t *testing.T) {
 		{
 			name: "Node not found",
 			id:   999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "DELETE",
@@ -410,7 +411,7 @@ func TestNodesService_Delete(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewNodesService(mock)
 			err := service.Delete(context.Background(), tc.id)
 			if tc.expectedError {
@@ -422,16 +423,16 @@ func TestNodesService_Delete(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 			expectedPath := fmt.Sprintf("/api/application/nodes/%d", tc.id)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected path %s, got %s", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -439,7 +440,7 @@ func TestNodesService_Delete(t *testing.T) {
 
 func TestNodesService_Allocations(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{}
+	mock := &testutil.MockRequester{}
 	service := NewNodesService(mock)
 	allocService := service.Allocations(context.Background(), 42)
 	if allocService == nil {
@@ -449,7 +450,7 @@ func TestNodesService_Allocations(t *testing.T) {
 
 func TestNodesService_DataValidation(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{responses: []mockResponse{{statusCode: 200, body: []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T12:00:00Z", "updated_at": "2023-01-02T12:00:00Z"}}`)}}}
+	mock := &testutil.MockRequester{Responses: []testutil.MockResponse{{StatusCode: 200, Body: []byte(`{"object": "node", "attributes": {"id": 1, "uuid": "uuid-1", "public": true, "name": "Node1", "location_id": 1, "fqdn": "node1.example.com", "scheme": "https", "memory": 2048, "memory_overallocate": 0, "disk": 10000, "disk_overallocate": 0, "daemon_listen": 8080, "daemon_sftp": 2022, "daemon_base": "/srv/daemon", "maintenance_mode": false, "upload_size": 100, "created_at": "2023-01-01T12:00:00Z", "updated_at": "2023-01-02T12:00:00Z"}}`)}}}
 	service := NewNodesService(mock)
 	node, err := service.Get(context.Background(), 1)
 	if err != nil {

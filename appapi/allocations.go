@@ -30,13 +30,13 @@ func (s *allocationsService) ListAll(ctx context.Context) ([]*api.Allocation, er
 }
 
 func (s *allocationsService) Create(ctx context.Context, options api.AllocationCreateOptions) error {
-	// Marshal the options struct into JSON.
+	// Marshal the Options struct into JSON.
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return fmt.Errorf("failed to marshal create allocation options: %w", err)
+		return fmt.Errorf("failed to marshal create allocation Options: %w", err)
 	}
 
-	// Construct the endpoint for creating allocations on this node.
+	// Construct the Endpoint for creating allocations on this node.
 	endpoint := fmt.Sprintf("/api/application/nodes/%d/allocations", s.nodeID)
 	req, err := s.client.NewRequest(ctx, "POST", endpoint, bytes.NewBuffer(jsonBytes), nil)
 	if err != nil {
@@ -51,7 +51,7 @@ func (s *allocationsService) Create(ctx context.Context, options api.AllocationC
 
 // Delete deletes a specific allocation from the configured node.
 func (s *allocationsService) Delete(ctx context.Context, allocationID int) error {
-	// Construct the specific endpoint for the allocation to be deleted.
+	// Construct the specific Endpoint for the allocation to be deleted.
 	endpoint := fmt.Sprintf("/api/application/nodes/%d/allocations", s.nodeID)
 	return crud.Delete[api.Allocation](ctx, s.client, endpoint, allocationID)
 }

@@ -49,7 +49,7 @@ func (s *nodesService) GetConfiguration(ctx context.Context, nodeID int) (*api.N
 func (s *nodesService) Create(ctx context.Context, options api.NodeCreateOptions) (*api.Node, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal create node options: %w", err)
+		return nil, fmt.Errorf("failed to marshal create node Options: %w", err)
 	}
 
 	req, err := s.client.NewRequest(ctx, "POST", "/api/application/nodes", bytes.NewBuffer(jsonBytes), nil)
@@ -69,7 +69,7 @@ func (s *nodesService) Create(ctx context.Context, options api.NodeCreateOptions
 func (s *nodesService) Update(ctx context.Context, id int, options api.NodeUpdateOptions) (*api.Node, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal update node options: %w", err)
+		return nil, fmt.Errorf("failed to marshal update node Options: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("/api/application/nodes/%d", id)

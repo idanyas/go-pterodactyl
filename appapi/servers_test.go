@@ -2,6 +2,7 @@ package appapi
 
 import (
 	"context"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"testing"
 
 	"github.com/davidarkless/go-pterodactyl/api"
@@ -12,7 +13,7 @@ func TestServersService_List(t *testing.T) {
 	testCases := []struct {
 		name           string
 		options        api.PaginationOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -21,9 +22,9 @@ func TestServersService_List(t *testing.T) {
 		{
 			name:    "Successful list with pagination",
 			options: api.PaginationOptions{Page: 1, PerPage: 10},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{"object": "list", "data": [
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{"object": "list", "data": [
 					{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "Server1", "description": "desc1", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}
 				], "meta": {"pagination": {"total": 1, "count": 1, "per_page": 10, "current_page": 1, "total_pages": 1}}}`),
 			},
@@ -35,9 +36,9 @@ func TestServersService_List(t *testing.T) {
 		{
 			name:    "API error response",
 			options: api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -46,7 +47,7 @@ func TestServersService_List(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			servers, meta, err := service.List(context.Background(), tc.options)
 			if tc.expectedError {
@@ -61,15 +62,15 @@ func TestServersService_List(t *testing.T) {
 			if len(servers) != tc.expectedCount {
 				t.Errorf("expected %d servers, got %d", tc.expectedCount, len(servers))
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
@@ -91,7 +92,7 @@ func TestServersService_ListAll(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name           string
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -99,9 +100,9 @@ func TestServersService_ListAll(t *testing.T) {
 	}{
 		{
 			name: "Successful list all",
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{"object": "list", "data": [
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{"object": "list", "data": [
 					{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "Server1", "description": "desc1", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}},
 					{"object": "server", "attributes": {"id": 2, "uuid": "uuid-2", "identifier": "id2", "name": "Server2", "description": "desc2", "suspended": true, "user": 2, "node": 1, "allocation": 2, "nest": 1, "egg": 1, "created_at": "2023-01-02T00:00:00Z"}}
 				], "meta": {"pagination": {"total": 2, "count": 2, "per_page": 100, "current_page": 1, "total_pages": 1}}}`),
@@ -113,9 +114,9 @@ func TestServersService_ListAll(t *testing.T) {
 		},
 		{
 			name: "Empty list",
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
 			},
 			expectedError:  false,
 			expectedCount:  0,
@@ -124,9 +125,9 @@ func TestServersService_ListAll(t *testing.T) {
 		},
 		{
 			name: "API error response",
-			mockResponse: mockResponse{
-				statusCode: 500,
-				body:       []byte(`{"errors": [{"code": "InternalServerError", "status": "500", "detail": "Internal server error."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 500,
+				Body:       []byte(`{"errors": [{"code": "InternalServerError", "status": "500", "detail": "Internal server error."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -135,7 +136,7 @@ func TestServersService_ListAll(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			servers, err := service.ListAll(context.Background())
 			if tc.expectedError {
@@ -150,15 +151,15 @@ func TestServersService_ListAll(t *testing.T) {
 			if len(servers) != tc.expectedCount {
 				t.Errorf("expected %d servers, got %d", tc.expectedCount, len(servers))
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 			if tc.expectedCount > 0 && len(servers) > 0 {
 				server := servers[0]
@@ -178,7 +179,7 @@ func TestServersService_Get(t *testing.T) {
 	testCases := []struct {
 		name           string
 		serverID       int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -186,9 +187,9 @@ func TestServersService_Get(t *testing.T) {
 		{
 			name:     "Successful get",
 			serverID: 1,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "GET",
@@ -197,9 +198,9 @@ func TestServersService_Get(t *testing.T) {
 		{
 			name:     "Server not found",
 			serverID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -208,7 +209,7 @@ func TestServersService_Get(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			server, err := service.Get(context.Background(), tc.serverID)
 			if tc.expectedError {
@@ -226,15 +227,15 @@ func TestServersService_Get(t *testing.T) {
 			if server.ID != tc.serverID {
 				t.Errorf("expected server ID %d, got %d", tc.serverID, server.ID)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -245,7 +246,7 @@ func TestServersService_GetExternal(t *testing.T) {
 	testCases := []struct {
 		name           string
 		externalID     string
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -253,9 +254,9 @@ func TestServersService_GetExternal(t *testing.T) {
 		{
 			name:       "Successful get external",
 			externalID: "external-123",
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "GET",
@@ -264,9 +265,9 @@ func TestServersService_GetExternal(t *testing.T) {
 		{
 			name:       "External server not found",
 			externalID: "nonexistent",
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "External server not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "External server not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "GET",
@@ -275,9 +276,9 @@ func TestServersService_GetExternal(t *testing.T) {
 		{
 			name:       "URL encoding test",
 			externalID: "external/with/slashes",
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "GET",
@@ -286,7 +287,7 @@ func TestServersService_GetExternal(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			server, err := service.GetExternal(context.Background(), tc.externalID)
 			if tc.expectedError {
@@ -301,15 +302,15 @@ func TestServersService_GetExternal(t *testing.T) {
 			if server == nil {
 				t.Fatal("expected server to be non-nil")
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -329,7 +330,7 @@ func TestServersService_Create(t *testing.T) {
 	testCases := []struct {
 		name           string
 		options        api.ServerCreateOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -357,9 +358,9 @@ func TestServersService_Create(t *testing.T) {
 					Backups:     2,
 				},
 			},
-			mockResponse: mockResponse{
-				statusCode: 201,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test server description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 201,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test server description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "POST",
@@ -387,9 +388,9 @@ func TestServersService_Create(t *testing.T) {
 					Backups:     2,
 				},
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationException", "status": "422", "detail": "Validation failed."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationException", "status": "422", "detail": "Validation failed."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "POST",
@@ -398,7 +399,7 @@ func TestServersService_Create(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			server, err := service.Create(context.Background(), tc.options)
 			if tc.expectedError {
@@ -413,19 +414,19 @@ func TestServersService_Create(t *testing.T) {
 			if server == nil {
 				t.Fatal("expected server to be non-nil")
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
-			// Verify request body contains expected data
-			if req.body == nil {
-				t.Error("expected request body to be non-nil")
+			// Verify request Body contains expected data
+			if req.Body == nil {
+				t.Error("expected request Body to be non-nil")
 			}
 		})
 	}
@@ -440,7 +441,7 @@ func TestServersService_UpdateDetails(t *testing.T) {
 		name           string
 		serverID       int
 		options        api.ServerUpdateDetailsOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -453,9 +454,9 @@ func TestServersService_UpdateDetails(t *testing.T) {
 				Description: &description,
 				ExternalID:  &externalID,
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "UpdatedServer", "description": "Updated description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "UpdatedServer", "description": "Updated description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "PATCH",
@@ -467,9 +468,9 @@ func TestServersService_UpdateDetails(t *testing.T) {
 			options: api.ServerUpdateDetailsOptions{
 				Name: "UpdatedServer",
 			},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "PATCH",
@@ -478,7 +479,7 @@ func TestServersService_UpdateDetails(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			server, err := service.UpdateDetails(context.Background(), tc.serverID, tc.options)
 			if tc.expectedError {
@@ -493,15 +494,15 @@ func TestServersService_UpdateDetails(t *testing.T) {
 			if server == nil {
 				t.Fatal("expected server to be non-nil")
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -513,7 +514,7 @@ func TestServersService_UpdateBuild(t *testing.T) {
 		name           string
 		serverID       int
 		options        api.ServerUpdateBuildOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -534,9 +535,9 @@ func TestServersService_UpdateBuild(t *testing.T) {
 					Backups:     2,
 				},
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 2, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 2, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "PATCH",
@@ -549,9 +550,9 @@ func TestServersService_UpdateBuild(t *testing.T) {
 				Allocation: 1,
 				Memory:     -1, // Invalid memory value
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationException", "status": "422", "detail": "Invalid memory allocation."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationException", "status": "422", "detail": "Invalid memory allocation."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "PATCH",
@@ -560,7 +561,7 @@ func TestServersService_UpdateBuild(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			server, err := service.UpdateBuild(context.Background(), tc.serverID, tc.options)
 			if tc.expectedError {
@@ -575,15 +576,15 @@ func TestServersService_UpdateBuild(t *testing.T) {
 			if server == nil {
 				t.Fatal("expected server to be non-nil")
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -600,7 +601,7 @@ func TestServersService_UpdateStartup(t *testing.T) {
 		name           string
 		serverID       int
 		options        api.ServerUpdateStartupOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -615,9 +616,9 @@ func TestServersService_UpdateStartup(t *testing.T) {
 				Image:       "openjdk:11",
 				SkipScripts: false,
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "TestServer", "description": "Test description", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 			expectedError:  false,
 			expectedMethod: "PATCH",
@@ -631,9 +632,9 @@ func TestServersService_UpdateStartup(t *testing.T) {
 				Egg:     1,
 				Image:   "openjdk:11",
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationException", "status": "422", "detail": "Startup command cannot be empty."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationException", "status": "422", "detail": "Startup command cannot be empty."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "PATCH",
@@ -642,7 +643,7 @@ func TestServersService_UpdateStartup(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			server, err := service.UpdateStartup(context.Background(), tc.serverID, tc.options)
 			if tc.expectedError {
@@ -657,15 +658,15 @@ func TestServersService_UpdateStartup(t *testing.T) {
 			if server == nil {
 				t.Fatal("expected server to be non-nil")
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -676,7 +677,7 @@ func TestServersService_Suspend(t *testing.T) {
 	testCases := []struct {
 		name           string
 		serverID       int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -684,9 +685,9 @@ func TestServersService_Suspend(t *testing.T) {
 		{
 			name:     "Successful suspend",
 			serverID: 1,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(``),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(``),
 			},
 			expectedError:  false,
 			expectedMethod: "POST",
@@ -695,9 +696,9 @@ func TestServersService_Suspend(t *testing.T) {
 		{
 			name:     "Server not found",
 			serverID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "POST",
@@ -706,7 +707,7 @@ func TestServersService_Suspend(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			err := service.Suspend(context.Background(), tc.serverID)
 			if tc.expectedError {
@@ -718,15 +719,15 @@ func TestServersService_Suspend(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -737,7 +738,7 @@ func TestServersService_Unsuspend(t *testing.T) {
 	testCases := []struct {
 		name           string
 		serverID       int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -745,9 +746,9 @@ func TestServersService_Unsuspend(t *testing.T) {
 		{
 			name:     "Successful unsuspend",
 			serverID: 1,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(``),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(``),
 			},
 			expectedError:  false,
 			expectedMethod: "POST",
@@ -756,9 +757,9 @@ func TestServersService_Unsuspend(t *testing.T) {
 		{
 			name:     "Server not found",
 			serverID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "POST",
@@ -767,7 +768,7 @@ func TestServersService_Unsuspend(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			err := service.Unsuspend(context.Background(), tc.serverID)
 			if tc.expectedError {
@@ -779,15 +780,15 @@ func TestServersService_Unsuspend(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -798,7 +799,7 @@ func TestServersService_Reinstall(t *testing.T) {
 	testCases := []struct {
 		name           string
 		serverID       int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -806,9 +807,9 @@ func TestServersService_Reinstall(t *testing.T) {
 		{
 			name:     "Successful reinstall",
 			serverID: 1,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(``),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(``),
 			},
 			expectedError:  false,
 			expectedMethod: "POST",
@@ -817,9 +818,9 @@ func TestServersService_Reinstall(t *testing.T) {
 		{
 			name:     "Server not found",
 			serverID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "POST",
@@ -828,7 +829,7 @@ func TestServersService_Reinstall(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			err := service.Reinstall(context.Background(), tc.serverID)
 			if tc.expectedError {
@@ -840,15 +841,15 @@ func TestServersService_Reinstall(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -860,7 +861,7 @@ func TestServersService_Delete(t *testing.T) {
 		name           string
 		serverID       int
 		force          bool
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -869,9 +870,9 @@ func TestServersService_Delete(t *testing.T) {
 			name:     "Successful delete",
 			serverID: 1,
 			force:    false,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(``),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(``),
 			},
 			expectedError:  false,
 			expectedMethod: "DELETE",
@@ -881,9 +882,9 @@ func TestServersService_Delete(t *testing.T) {
 			name:     "Successful force delete",
 			serverID: 1,
 			force:    true,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(``),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(``),
 			},
 			expectedError:  false,
 			expectedMethod: "DELETE",
@@ -893,9 +894,9 @@ func TestServersService_Delete(t *testing.T) {
 			name:     "Server not found",
 			serverID: 999,
 			force:    false,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException", "status": "404", "detail": "Server not found."}]}`),
 			},
 			expectedError:  true,
 			expectedMethod: "DELETE",
@@ -904,7 +905,7 @@ func TestServersService_Delete(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewServersService(mock)
 			err := service.Delete(context.Background(), tc.serverID, tc.force)
 			if tc.expectedError {
@@ -916,19 +917,19 @@ func TestServersService_Delete(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
-			// Check if force delete includes request body
-			if tc.force && req.body == nil {
-				t.Error("expected request body for force delete")
+			// Check if force delete includes request Body
+			if tc.force && req.Body == nil {
+				t.Error("expected request Body for force delete")
 			}
 		})
 	}
@@ -936,7 +937,7 @@ func TestServersService_Delete(t *testing.T) {
 
 func TestServersService_Databases(t *testing.T) {
 	t.Parallel()
-	service := NewServersService(&mockRequester{})
+	service := NewServersService(&testutil.MockRequester{})
 
 	// Test that Databases returns a non-nil DatabaseService
 	databaseService := service.Databases(context.Background(), 1)
@@ -951,10 +952,10 @@ func TestServersService_DataValidation(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Empty server list response", func(t *testing.T) {
-		mock := &mockRequester{responses: []mockResponse{
+		mock := &testutil.MockRequester{Responses: []testutil.MockResponse{
 			{
-				statusCode: 200,
-				body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
+				StatusCode: 200,
+				Body:       []byte(`{"object": "list", "data": [], "meta": {"pagination": {"total": 0, "count": 0, "per_page": 100, "current_page": 1, "total_pages": 0}}}`),
 			},
 		}}
 		service := NewServersService(mock)
@@ -968,10 +969,10 @@ func TestServersService_DataValidation(t *testing.T) {
 	})
 
 	t.Run("Invalid JSON response", func(t *testing.T) {
-		mock := &mockRequester{responses: []mockResponse{
+		mock := &testutil.MockRequester{Responses: []testutil.MockResponse{
 			{
-				statusCode: 200,
-				body:       []byte(`invalid json`),
+				StatusCode: 200,
+				Body:       []byte(`invalid json`),
 			},
 		}}
 		service := NewServersService(mock)
@@ -982,10 +983,10 @@ func TestServersService_DataValidation(t *testing.T) {
 	})
 
 	t.Run("Server with minimal data", func(t *testing.T) {
-		mock := &mockRequester{responses: []mockResponse{
+		mock := &testutil.MockRequester{Responses: []testutil.MockResponse{
 			{
-				statusCode: 200,
-				body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "MinimalServer", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
+				StatusCode: 200,
+				Body:       []byte(`{"object": "server", "attributes": {"id": 1, "uuid": "uuid-1", "identifier": "id1", "name": "MinimalServer", "suspended": false, "user": 1, "node": 1, "allocation": 1, "nest": 1, "egg": 1, "created_at": "2023-01-01T00:00:00Z"}}`),
 			},
 		}}
 		service := NewServersService(mock)
@@ -1008,7 +1009,7 @@ func TestServersService_DataValidation(t *testing.T) {
 // Test constructor
 func TestNewServersService(t *testing.T) {
 	t.Parallel()
-	mock := &mockRequester{}
+	mock := &testutil.MockRequester{}
 	service := NewServersService(mock)
 	if service == nil {
 		t.Fatal("expected service to be non-nil")

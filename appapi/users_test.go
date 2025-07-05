@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"strings"
 	"testing"
 
@@ -33,16 +34,16 @@ func TestUsersService_List(t *testing.T) {
 	testCases := []struct {
 		name          string
 		options       *api.PaginationOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedCount int
 	}{
 		{
 			name:    "Successful list",
 			options: &api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(mockUserListResponse),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(mockUserListResponse),
 			},
 			expectedError: false,
 			expectedCount: 2,
@@ -50,9 +51,9 @@ func TestUsersService_List(t *testing.T) {
 		{
 			name:    "API error",
 			options: &api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 500,
-				body:       []byte(`{"errors": [{"code": "ServerException"}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 500,
+				Body:       []byte(`{"errors": [{"code": "ServerException"}]}`),
 			},
 			expectedError: true,
 		},
@@ -60,7 +61,7 @@ func TestUsersService_List(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewUsersService(mock)
 
 			users, meta, err := service.List(context.Background(), tc.options)
@@ -80,8 +81,8 @@ func TestUsersService_List(t *testing.T) {
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
 			}
-			if mock.requests[0].endpoint != "/api/application/users" {
-				t.Errorf("expected endpoint '/api/application/users', got '%s'", mock.requests[0].endpoint)
+			if mock.Requests[0].Endpoint != "/api/application/users" {
+				t.Errorf("expected Endpoint '/api/application/users', got '%s'", mock.Requests[0].Endpoint)
 			}
 		})
 	}
@@ -98,16 +99,16 @@ func TestUsersService_Get(t *testing.T) {
 	testCases := []struct {
 		name          string
 		userID        int
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedID    int
 	}{
 		{
 			name:   "Successful get",
 			userID: 123,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(mockUserResponse),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(mockUserResponse),
 			},
 			expectedError: false,
 			expectedID:    123,
@@ -115,9 +116,9 @@ func TestUsersService_Get(t *testing.T) {
 		{
 			name:   "User not found",
 			userID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
 			},
 			expectedError: true,
 		},
@@ -125,7 +126,7 @@ func TestUsersService_Get(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewUsersService(mock)
 
 			user, err := service.Get(context.Background(), tc.userID)
@@ -144,8 +145,8 @@ func TestUsersService_Get(t *testing.T) {
 			}
 
 			expectedPath := fmt.Sprintf("/api/application/users/%d", tc.userID)
-			if mock.requests[0].endpoint != expectedPath {
-				t.Errorf("expected endpoint '%s', got '%s'", expectedPath, mock.requests[0].endpoint)
+			if mock.Requests[0].Endpoint != expectedPath {
+				t.Errorf("expected Endpoint '%s', got '%s'", expectedPath, mock.Requests[0].Endpoint)
 			}
 		})
 	}
@@ -162,16 +163,16 @@ func TestUsersService_GetExternalID(t *testing.T) {
 	testCases := []struct {
 		name           string
 		externalID     string
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedUserID int
 	}{
 		{
 			name:       "Successful get by external ID",
 			externalID: "ext-123",
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(mockUserResponse),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(mockUserResponse),
 			},
 			expectedError:  false,
 			expectedUserID: 456,
@@ -179,9 +180,9 @@ func TestUsersService_GetExternalID(t *testing.T) {
 		{
 			name:       "User not found by external ID",
 			externalID: "ext-999",
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
 			},
 			expectedError: true,
 		},
@@ -189,7 +190,7 @@ func TestUsersService_GetExternalID(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewUsersService(mock)
 
 			user, err := service.GetExternalID(context.Background(), tc.externalID)
@@ -208,8 +209,8 @@ func TestUsersService_GetExternalID(t *testing.T) {
 			}
 
 			expectedPath := fmt.Sprintf("/api/application/users/external/%s", tc.externalID)
-			if mock.requests[0].endpoint != expectedPath {
-				t.Errorf("expected endpoint '%s', got '%s'", expectedPath, mock.requests[0].endpoint)
+			if mock.Requests[0].Endpoint != expectedPath {
+				t.Errorf("expected Endpoint '%s', got '%s'", expectedPath, mock.Requests[0].Endpoint)
 			}
 		})
 	}
@@ -236,16 +237,16 @@ func TestUsersService_Create(t *testing.T) {
 	testCases := []struct {
 		name          string
 		options       api.UserCreateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
 		{
 			name:    "Successful creation",
 			options: options,
-			mockResponse: mockResponse{
-				statusCode: 201, // 201 Created is typical
-				body:       []byte(mockCreatedUserResponse),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 201, // 201 Created is typical
+				Body:       []byte(mockCreatedUserResponse),
 			},
 			expectedError: false,
 			expectedBody:  string(expectedBody),
@@ -253,9 +254,9 @@ func TestUsersService_Create(t *testing.T) {
 		{
 			name:    "Validation error",
 			options: options,
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body:       []byte(`{"errors": [{"code": "ValidationException"}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body:       []byte(`{"errors": [{"code": "ValidationException"}]}`),
 			},
 			expectedError: true,
 			expectedBody:  string(expectedBody),
@@ -264,7 +265,7 @@ func TestUsersService_Create(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewUsersService(mock)
 
 			user, err := service.Create(context.Background(), tc.options)
@@ -285,15 +286,15 @@ func TestUsersService_Create(t *testing.T) {
 				t.Errorf("expected username '%s', got '%s'", tc.options.Username, user.Username)
 			}
 
-			req := mock.requests[0]
-			if req.method != "POST" {
-				t.Errorf("expected method POST, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "POST" {
+				t.Errorf("expected Method POST, got %s", req.Method)
 			}
-			if req.endpoint != "/api/application/users" {
-				t.Errorf("expected endpoint '/api/application/users', got '%s'", req.endpoint)
+			if req.Endpoint != "/api/application/users" {
+				t.Errorf("expected Endpoint '/api/application/users', got '%s'", req.Endpoint)
 			}
-			if strings.TrimSpace(string(req.body)) != tc.expectedBody {
-				t.Errorf("expected body '%s', got '%s'", tc.expectedBody, string(req.body))
+			if strings.TrimSpace(string(req.Body)) != tc.expectedBody {
+				t.Errorf("expected Body '%s', got '%s'", tc.expectedBody, string(req.Body))
 			}
 		})
 	}
@@ -319,7 +320,7 @@ func TestUsersService_Update(t *testing.T) {
 		name          string
 		userID        int
 		options       api.UserUpdateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
@@ -327,9 +328,9 @@ func TestUsersService_Update(t *testing.T) {
 			name:    "Successful update",
 			userID:  userID,
 			options: options,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body:       []byte(mockUpdatedUserResponse),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body:       []byte(mockUpdatedUserResponse),
 			},
 			expectedError: false,
 			expectedBody:  string(expectedBody),
@@ -338,9 +339,9 @@ func TestUsersService_Update(t *testing.T) {
 			name:    "User not found",
 			userID:  999,
 			options: options,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
 			},
 			expectedError: true,
 			expectedBody:  string(expectedBody),
@@ -349,7 +350,7 @@ func TestUsersService_Update(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewUsersService(mock)
 
 			user, err := service.Update(context.Background(), tc.userID, tc.options)
@@ -367,16 +368,16 @@ func TestUsersService_Update(t *testing.T) {
 				t.Errorf("expected username '%s', got '%s'", tc.options.Username, user.Username)
 			}
 
-			req := mock.requests[0]
-			if req.method != "PATCH" {
-				t.Errorf("expected method PATCH, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "PATCH" {
+				t.Errorf("expected Method PATCH, got %s", req.Method)
 			}
 			expectedPath := fmt.Sprintf("/api/application/users/%d", tc.userID)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected endpoint '%s', got '%s'", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected Endpoint '%s', got '%s'", expectedPath, req.Endpoint)
 			}
-			if strings.TrimSpace(string(req.body)) != tc.expectedBody {
-				t.Errorf("expected body '%s', got '%s'", tc.expectedBody, string(req.body))
+			if strings.TrimSpace(string(req.Body)) != tc.expectedBody {
+				t.Errorf("expected Body '%s', got '%s'", tc.expectedBody, string(req.Body))
 			}
 		})
 	}
@@ -388,33 +389,33 @@ func TestUsersService_Delete(t *testing.T) {
 	testCases := []struct {
 		name          string
 		userID        int
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 	}{
 		{
 			name:   "Successful deletion",
 			userID: 123,
-			mockResponse: mockResponse{
-				statusCode: 204, // No Content
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204, // No Content
+				Body:       []byte(""),
 			},
 			expectedError: false,
 		},
 		{
 			name:   "User not found",
 			userID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body:       []byte(`{"errors": [{"code": "NotFoundHttpException"}]}`),
 			},
 			expectedError: true,
 		},
 		{
 			name:   "Cannot delete user with servers",
 			userID: 456,
-			mockResponse: mockResponse{
-				statusCode: 400, // Bad Request
-				body:       []byte(`{"errors": [{"code": "HasActiveServersException"}]}`),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 400, // Bad Request
+				Body:       []byte(`{"errors": [{"code": "HasActiveServersException"}]}`),
 			},
 			expectedError: true,
 		},
@@ -422,7 +423,7 @@ func TestUsersService_Delete(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{responses: []mockResponse{tc.mockResponse}}
+			mock := &testutil.MockRequester{Responses: []testutil.MockResponse{tc.mockResponse}}
 			service := NewUsersService(mock)
 
 			err := service.Delete(context.Background(), tc.userID)
@@ -437,13 +438,13 @@ func TestUsersService_Delete(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			req := mock.requests[0]
-			if req.method != "DELETE" {
-				t.Errorf("expected method DELETE, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "DELETE" {
+				t.Errorf("expected Method DELETE, got %s", req.Method)
 			}
 			expectedPath := fmt.Sprintf("/api/application/users/%d", tc.userID)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected endpoint '%s', got '%s'", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected Endpoint '%s', got '%s'", expectedPath, req.Endpoint)
 			}
 		})
 	}

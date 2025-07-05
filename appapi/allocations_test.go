@@ -1,96 +1,14 @@
 package appapi
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"strings"
 	"testing"
 
 	"github.com/davidarkless/go-pterodactyl/api"
-	"github.com/davidarkless/go-pterodactyl/errors"
 )
-
-// mockRequester implements the requester.Requester interface for testing
-type mockRequester struct {
-	requests     []mockRequest
-	responses    []mockResponse
-	currentIndex int
-}
-
-type mockRequest struct {
-	method   string
-	endpoint string
-	body     []byte
-	options  *api.PaginationOptions
-}
-
-type mockResponse struct {
-	statusCode int
-	body       []byte
-	err        error
-}
-
-func (m *mockRequester) NewRequest(ctx context.Context, method, endpoint string, body io.Reader, options *api.PaginationOptions) (*http.Request, error) {
-	var bodyBytes []byte
-	if body != nil {
-		bodyBytes, _ = io.ReadAll(body)
-	}
-
-	m.requests = append(m.requests, mockRequest{
-		method:   method,
-		endpoint: endpoint,
-		body:     bodyBytes,
-		options:  options,
-	})
-
-	// Create a minimal request for testing
-	req, _ := http.NewRequestWithContext(ctx, method, "http://test.com"+endpoint, bytes.NewReader(bodyBytes))
-	return req, nil
-}
-
-func (m *mockRequester) Do(ctx context.Context, req *http.Request, v any) (*http.Response, error) {
-	if m.currentIndex >= len(m.responses) {
-		return nil, fmt.Errorf("no more mock responses available")
-	}
-
-	response := m.responses[m.currentIndex]
-	m.currentIndex++
-
-	if response.err != nil {
-		return nil, response.err
-	}
-
-	// Create a mock response
-	resp := &http.Response{
-		StatusCode: response.statusCode,
-		Body:       io.NopCloser(bytes.NewReader(response.body)),
-	}
-
-	// If we have a target to decode into and the response is successful
-	if v != nil && response.statusCode >= 200 && response.statusCode < 300 {
-		if err := json.NewDecoder(bytes.NewReader(response.body)).Decode(v); err != nil {
-			return nil, err
-		}
-	}
-
-	// If it's an error response, create an APIError
-	if response.statusCode >= 400 {
-		apiErr := &errors.APIError{HTTPStatusCode: response.statusCode}
-		if len(response.body) > 0 {
-			err := json.NewDecoder(bytes.NewReader(response.body)).Decode(apiErr)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return nil, apiErr
-	}
-
-	return resp, nil
-}
 
 func TestAllocationsService_List(t *testing.T) {
 	t.Parallel()
@@ -99,7 +17,7 @@ func TestAllocationsService_List(t *testing.T) {
 		name           string
 		nodeID         int
 		options        *api.PaginationOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -112,9 +30,9 @@ func TestAllocationsService_List(t *testing.T) {
 				Page:    1,
 				PerPage: 10,
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [
 						{
@@ -156,9 +74,9 @@ func TestAllocationsService_List(t *testing.T) {
 			name:    "Successful list without pagination",
 			nodeID:  2,
 			options: nil,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -181,9 +99,9 @@ func TestAllocationsService_List(t *testing.T) {
 			name:    "API error response",
 			nodeID:  3,
 			options: &api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -199,8 +117,8 @@ func TestAllocationsService_List(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newAllocationsService(mock, tc.nodeID)
@@ -225,29 +143,29 @@ func TestAllocationsService_List(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 
-			// If we have pagination options, verify they were passed correctly
+			// If we have pagination Options, verify they were passed correctly
 			if tc.options != nil {
-				if req.options == nil {
-					t.Error("expected pagination options to be passed")
-				} else if req.options.Page != tc.options.Page {
-					t.Errorf("expected page %d, got %d", tc.options.Page, req.options.Page)
+				if req.Options == nil {
+					t.Error("expected pagination Options to be passed")
+				} else if req.Options.Page != tc.options.Page {
+					t.Errorf("expected page %d, got %d", tc.options.Page, req.Options.Page)
 				}
 			}
 
-			// Verify meta is present for successful responses
+			// Verify meta is present for successful Responses
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
 			}
@@ -261,7 +179,7 @@ func TestAllocationsService_ListAll(t *testing.T) {
 	testCases := []struct {
 		name          string
 		nodeID        int
-		mockResponses []mockResponse
+		mockResponses []testutil.MockResponse
 		expectedError bool
 		expectedCount int
 		expectedCalls int
@@ -269,10 +187,10 @@ func TestAllocationsService_ListAll(t *testing.T) {
 		{
 			name:   "Single page of results",
 			nodeID: 1,
-			mockResponses: []mockResponse{
+			mockResponses: []testutil.MockResponse{
 				{
-					statusCode: 200,
-					body: []byte(`{
+					StatusCode: 200,
+					Body: []byte(`{
 						"object": "list",
 						"data": [
 							{
@@ -304,10 +222,10 @@ func TestAllocationsService_ListAll(t *testing.T) {
 		{
 			name:   "Multiple pages of results",
 			nodeID: 2,
-			mockResponses: []mockResponse{
+			mockResponses: []testutil.MockResponse{
 				{
-					statusCode: 200,
-					body: []byte(`{
+					StatusCode: 200,
+					Body: []byte(`{
 						"object": "list",
 						"data": [
 							{
@@ -332,8 +250,8 @@ func TestAllocationsService_ListAll(t *testing.T) {
 					}`),
 				},
 				{
-					statusCode: 200,
-					body: []byte(`{
+					StatusCode: 200,
+					Body: []byte(`{
 						"object": "list",
 						"data": [
 							{
@@ -365,10 +283,10 @@ func TestAllocationsService_ListAll(t *testing.T) {
 		{
 			name:   "API error on first page",
 			nodeID: 3,
-			mockResponses: []mockResponse{
+			mockResponses: []testutil.MockResponse{
 				{
-					statusCode: 500,
-					body: []byte(`{
+					StatusCode: 500,
+					Body: []byte(`{
 						"errors": [{
 							"code": "InternalServerError",
 							"status": "500",
@@ -384,8 +302,8 @@ func TestAllocationsService_ListAll(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: tc.mockResponses,
+			mock := &testutil.MockRequester{
+				Responses: tc.mockResponses,
 			}
 
 			service := newAllocationsService(mock, tc.nodeID)
@@ -410,19 +328,19 @@ func TestAllocationsService_ListAll(t *testing.T) {
 			}
 
 			// Check number of API calls
-			if len(mock.requests) != tc.expectedCalls {
-				t.Errorf("expected %d API calls, got %d", tc.expectedCalls, len(mock.requests))
+			if len(mock.Requests) != tc.expectedCalls {
+				t.Errorf("expected %d API calls, got %d", tc.expectedCalls, len(mock.Requests))
 			}
 
-			// Verify all requests were to the correct endpoint
-			for i, req := range mock.requests {
+			// Verify all Requests were to the correct Endpoint
+			for i, req := range mock.Requests {
 				expectedPath := fmt.Sprintf("/api/application/nodes/%d/allocations", tc.nodeID)
-				if req.endpoint != expectedPath {
-					t.Errorf("request %d: expected path %s, got %s", i, expectedPath, req.endpoint)
+				if req.Endpoint != expectedPath {
+					t.Errorf("request %d: expected path %s, got %s", i, expectedPath, req.Endpoint)
 				}
 
-				if req.method != "GET" {
-					t.Errorf("request %d: expected method GET, got %s", i, req.method)
+				if req.Method != "GET" {
+					t.Errorf("request %d: expected Method GET, got %s", i, req.Method)
 				}
 			}
 		})
@@ -436,7 +354,7 @@ func TestAllocationsService_Create(t *testing.T) {
 		name          string
 		nodeID        int
 		options       api.AllocationCreateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
@@ -447,9 +365,9 @@ func TestAllocationsService_Create(t *testing.T) {
 				IP:    "192.168.1.1",
 				Ports: []string{"25565", "25566", "25567"},
 			},
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError: false,
 			expectedBody:  `{"ip":"192.168.1.1","ports":["25565","25566","25567"]}`,
@@ -461,9 +379,9 @@ func TestAllocationsService_Create(t *testing.T) {
 				IP:    "10.0.0.1",
 				Ports: []string{"8080"},
 			},
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError: false,
 			expectedBody:  `{"ip":"10.0.0.1","ports":["8080"]}`,
@@ -475,9 +393,9 @@ func TestAllocationsService_Create(t *testing.T) {
 				IP:    "invalid-ip",
 				Ports: []string{"99999"},
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -495,8 +413,8 @@ func TestAllocationsService_Create(t *testing.T) {
 				IP:    "192.168.1.1",
 				Ports: []string{"25565"},
 			},
-			mockResponse: mockResponse{
-				err: fmt.Errorf("network timeout"),
+			mockResponse: testutil.MockResponse{
+				Err: fmt.Errorf("network timeout"),
 			},
 			expectedError: true,
 			expectedBody:  `{"ip":"192.168.1.1","ports":["25565"]}`,
@@ -505,8 +423,8 @@ func TestAllocationsService_Create(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newAllocationsService(mock, tc.nodeID)
@@ -526,24 +444,24 @@ func TestAllocationsService_Create(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != "POST" {
-				t.Errorf("expected method POST, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "POST" {
+				t.Errorf("expected Method POST, got %s", req.Method)
 			}
 
 			expectedPath := fmt.Sprintf("/api/application/nodes/%d/allocations", tc.nodeID)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected path %s, got %s", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, req.Endpoint)
 			}
 
-			// Check request body
-			bodyStr := strings.TrimSpace(string(req.body))
+			// Check request Body
+			bodyStr := strings.TrimSpace(string(req.Body))
 			if bodyStr != tc.expectedBody {
-				t.Errorf("expected body %s, got %s", tc.expectedBody, bodyStr)
+				t.Errorf("expected Body %s, got %s", tc.expectedBody, bodyStr)
 			}
 		})
 	}
@@ -556,7 +474,7 @@ func TestAllocationsService_Delete(t *testing.T) {
 		name           string
 		nodeID         int
 		allocationID   int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -565,9 +483,9 @@ func TestAllocationsService_Delete(t *testing.T) {
 			name:         "Successful deletion",
 			nodeID:       1,
 			allocationID: 123,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError:  false,
 			expectedMethod: "DELETE",
@@ -577,9 +495,9 @@ func TestAllocationsService_Delete(t *testing.T) {
 			name:         "Allocation not found",
 			nodeID:       2,
 			allocationID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -595,9 +513,9 @@ func TestAllocationsService_Delete(t *testing.T) {
 			name:         "Allocation in use",
 			nodeID:       3,
 			allocationID: 456,
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -613,8 +531,8 @@ func TestAllocationsService_Delete(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newAllocationsService(mock, tc.nodeID)
@@ -634,17 +552,17 @@ func TestAllocationsService_Delete(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -655,12 +573,12 @@ func TestAllocationsService_Integration(t *testing.T) {
 
 	// Test that the service correctly handles the nodeID in all operations
 	nodeID := 42
-	mock := &mockRequester{
-		responses: []mockResponse{
+	mock := &testutil.MockRequester{
+		Responses: []testutil.MockResponse{
 			// List response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -676,8 +594,8 @@ func TestAllocationsService_Integration(t *testing.T) {
 			},
 			// ListAll response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -693,13 +611,13 @@ func TestAllocationsService_Integration(t *testing.T) {
 			},
 			// Create response
 			{
-				statusCode: 204,
-				body:       []byte(""),
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			// Delete response
 			{
-				statusCode: 204,
-				body:       []byte(""),
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 		},
 	}
@@ -734,17 +652,17 @@ func TestAllocationsService_Integration(t *testing.T) {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	// Verify all requests used the correct nodeID
+	// Verify all Requests used the correct nodeID
 	expectedBasePath := fmt.Sprintf("/api/application/nodes/%d/allocations", nodeID)
-	for i, req := range mock.requests {
-		if !strings.HasPrefix(req.endpoint, expectedBasePath) {
-			t.Errorf("request %d: expected endpoint to start with %s, got %s", i, expectedBasePath, req.endpoint)
+	for i, req := range mock.Requests {
+		if !strings.HasPrefix(req.Endpoint, expectedBasePath) {
+			t.Errorf("request %d: expected Endpoint to start with %s, got %s", i, expectedBasePath, req.Endpoint)
 		}
 	}
 
-	// Verify we made exactly 4 requests
-	if len(mock.requests) != 4 {
-		t.Errorf("expected 4 requests, got %d", len(mock.requests))
+	// Verify we made exactly 4 Requests
+	if len(mock.Requests) != 4 {
+		t.Errorf("expected 4 Requests, got %d", len(mock.Requests))
 	}
 }
 
@@ -756,7 +674,7 @@ func TestAllocationsService_EdgeCases(t *testing.T) {
 		nodeID        int
 		allocationID  int
 		options       api.AllocationCreateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		description   string
 	}{
@@ -764,9 +682,9 @@ func TestAllocationsService_EdgeCases(t *testing.T) {
 			name:         "Zero node ID",
 			nodeID:       0,
 			allocationID: 123,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError: false,
 			description:   "Should handle zero node ID gracefully",
@@ -775,9 +693,9 @@ func TestAllocationsService_EdgeCases(t *testing.T) {
 			name:         "Negative allocation ID",
 			nodeID:       1,
 			allocationID: -1,
-			mockResponse: mockResponse{
-				statusCode: 400,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 400,
+				Body: []byte(`{
 					"errors": [{
 						"code": "BadRequestHttpException",
 						"status": "400",
@@ -795,9 +713,9 @@ func TestAllocationsService_EdgeCases(t *testing.T) {
 				IP:    "192.168.1.1",
 				Ports: []string{},
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -815,9 +733,9 @@ func TestAllocationsService_EdgeCases(t *testing.T) {
 				IP:    "",
 				Ports: []string{"25565"},
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -832,8 +750,8 @@ func TestAllocationsService_EdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newAllocationsService(mock, tc.nodeID)

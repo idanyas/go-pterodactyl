@@ -3,6 +3,7 @@ package appapi
 import (
 	"context"
 	"fmt"
+	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ func TestDatabaseService_List(t *testing.T) {
 		name           string
 		serverID       int
 		options        api.PaginationOptions
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedCount  int
 		expectedMethod string
@@ -30,9 +31,9 @@ func TestDatabaseService_List(t *testing.T) {
 				Page:    1,
 				PerPage: 10,
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [
 						{
@@ -84,9 +85,9 @@ func TestDatabaseService_List(t *testing.T) {
 			name:     "Successful list without pagination",
 			serverID: 2,
 			options:  api.PaginationOptions{},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -109,9 +110,9 @@ func TestDatabaseService_List(t *testing.T) {
 			name:     "API error response",
 			serverID: 3,
 			options:  api.PaginationOptions{Page: 1},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -127,8 +128,8 @@ func TestDatabaseService_List(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newDatabaseService(mock, tc.serverID)
@@ -153,20 +154,20 @@ func TestDatabaseService_List(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 
-			// Verify meta is present for successful responses
+			// Verify meta is present for successful Responses
 			if meta == nil {
 				t.Error("expected meta to be non-nil")
 			}
@@ -192,7 +193,7 @@ func TestDatabaseService_Get(t *testing.T) {
 		name           string
 		serverID       int
 		databaseID     int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -201,9 +202,9 @@ func TestDatabaseService_Get(t *testing.T) {
 			name:       "Successful get",
 			serverID:   1,
 			databaseID: 123,
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "server_database",
 					"attributes": {
 						"id": 123,
@@ -226,9 +227,9 @@ func TestDatabaseService_Get(t *testing.T) {
 			name:       "Database not found",
 			serverID:   2,
 			databaseID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -244,9 +245,9 @@ func TestDatabaseService_Get(t *testing.T) {
 			name:       "Server not found",
 			serverID:   999,
 			databaseID: 123,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -262,8 +263,8 @@ func TestDatabaseService_Get(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newDatabaseService(mock, tc.serverID)
@@ -283,17 +284,17 @@ func TestDatabaseService_Get(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 
 			// Verify database data
@@ -318,7 +319,7 @@ func TestDatabaseService_Create(t *testing.T) {
 		name          string
 		serverID      int
 		options       api.DatabaseCreateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		expectedBody  string
 	}{
@@ -330,9 +331,9 @@ func TestDatabaseService_Create(t *testing.T) {
 				Remote:       "192.168.1.100",
 				Host:         &[]int{1}[0],
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "server_database",
 					"attributes": {
 						"id": 456,
@@ -357,9 +358,9 @@ func TestDatabaseService_Create(t *testing.T) {
 				DatabaseName: "auto_host_db",
 				Remote:       "%",
 			},
-			mockResponse: mockResponse{
-				statusCode: 200,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "server_database",
 					"attributes": {
 						"id": 789,
@@ -384,9 +385,9 @@ func TestDatabaseService_Create(t *testing.T) {
 				DatabaseName: "invalid_db",
 				Remote:       "invalid_remote",
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -404,9 +405,9 @@ func TestDatabaseService_Create(t *testing.T) {
 				DatabaseName: "test_db",
 				Remote:       "%",
 			},
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -421,8 +422,8 @@ func TestDatabaseService_Create(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newDatabaseService(mock, tc.serverID)
@@ -442,24 +443,24 @@ func TestDatabaseService_Create(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != "POST" {
-				t.Errorf("expected method POST, got %s", req.method)
+			req := mock.Requests[0]
+			if req.Method != "POST" {
+				t.Errorf("expected Method POST, got %s", req.Method)
 			}
 
 			expectedPath := fmt.Sprintf("/api/application/servers/%d/databases", tc.serverID)
-			if req.endpoint != expectedPath {
-				t.Errorf("expected path %s, got %s", expectedPath, req.endpoint)
+			if req.Endpoint != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, req.Endpoint)
 			}
 
-			// Check request body
-			bodyStr := strings.TrimSpace(string(req.body))
+			// Check request Body
+			bodyStr := strings.TrimSpace(string(req.Body))
 			if bodyStr != tc.expectedBody {
-				t.Errorf("expected body %s, got %s", tc.expectedBody, bodyStr)
+				t.Errorf("expected Body %s, got %s", tc.expectedBody, bodyStr)
 			}
 
 			// Verify database data
@@ -484,7 +485,7 @@ func TestDatabaseService_ResetPassword(t *testing.T) {
 		name           string
 		serverID       int
 		databaseID     int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -493,9 +494,9 @@ func TestDatabaseService_ResetPassword(t *testing.T) {
 			name:       "Successful password reset",
 			serverID:   1,
 			databaseID: 123,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError:  false,
 			expectedMethod: "POST",
@@ -505,9 +506,9 @@ func TestDatabaseService_ResetPassword(t *testing.T) {
 			name:       "Database not found",
 			serverID:   2,
 			databaseID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -523,9 +524,9 @@ func TestDatabaseService_ResetPassword(t *testing.T) {
 			name:       "Server not found",
 			serverID:   999,
 			databaseID: 123,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -541,8 +542,8 @@ func TestDatabaseService_ResetPassword(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newDatabaseService(mock, tc.serverID)
@@ -562,22 +563,22 @@ func TestDatabaseService_ResetPassword(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 
-			// Verify no body was sent
-			if len(req.body) > 0 {
-				t.Error("expected no request body for password reset")
+			// Verify no Body was sent
+			if len(req.Body) > 0 {
+				t.Error("expected no request Body for password reset")
 			}
 		})
 	}
@@ -590,7 +591,7 @@ func TestDatabaseService_Delete(t *testing.T) {
 		name           string
 		serverID       int
 		databaseID     int
-		mockResponse   mockResponse
+		mockResponse   testutil.MockResponse
 		expectedError  bool
 		expectedMethod string
 		expectedPath   string
@@ -599,9 +600,9 @@ func TestDatabaseService_Delete(t *testing.T) {
 			name:       "Successful deletion",
 			serverID:   1,
 			databaseID: 123,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError:  false,
 			expectedMethod: "DELETE",
@@ -611,9 +612,9 @@ func TestDatabaseService_Delete(t *testing.T) {
 			name:       "Database not found",
 			serverID:   2,
 			databaseID: 999,
-			mockResponse: mockResponse{
-				statusCode: 404,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 404,
+				Body: []byte(`{
 					"errors": [{
 						"code": "NotFoundHttpException",
 						"status": "404",
@@ -629,9 +630,9 @@ func TestDatabaseService_Delete(t *testing.T) {
 			name:       "Database in use",
 			serverID:   3,
 			databaseID: 456,
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -647,8 +648,8 @@ func TestDatabaseService_Delete(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newDatabaseService(mock, tc.serverID)
@@ -668,17 +669,17 @@ func TestDatabaseService_Delete(t *testing.T) {
 			}
 
 			// Check request expectations
-			if len(mock.requests) != 1 {
-				t.Fatalf("expected 1 request, got %d", len(mock.requests))
+			if len(mock.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(mock.Requests))
 			}
 
-			req := mock.requests[0]
-			if req.method != tc.expectedMethod {
-				t.Errorf("expected method %s, got %s", tc.expectedMethod, req.method)
+			req := mock.Requests[0]
+			if req.Method != tc.expectedMethod {
+				t.Errorf("expected Method %s, got %s", tc.expectedMethod, req.Method)
 			}
 
-			if req.endpoint != tc.expectedPath {
-				t.Errorf("expected path %s, got %s", tc.expectedPath, req.endpoint)
+			if req.Endpoint != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, req.Endpoint)
 			}
 		})
 	}
@@ -689,12 +690,12 @@ func TestDatabaseService_Integration(t *testing.T) {
 
 	// Test that the service correctly handles the serverID in all operations
 	serverID := 42
-	mock := &mockRequester{
-		responses: []mockResponse{
+	mock := &testutil.MockRequester{
+		Responses: []testutil.MockResponse{
 			// List response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "list",
 					"data": [],
 					"meta": {
@@ -710,8 +711,8 @@ func TestDatabaseService_Integration(t *testing.T) {
 			},
 			// Get response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "server_database",
 					"attributes": {
 						"id": 123,
@@ -728,8 +729,8 @@ func TestDatabaseService_Integration(t *testing.T) {
 			},
 			// Create response
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "server_database",
 					"attributes": {
 						"id": 456,
@@ -746,13 +747,13 @@ func TestDatabaseService_Integration(t *testing.T) {
 			},
 			// Reset password response
 			{
-				statusCode: 204,
-				body:       []byte(""),
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			// Delete response
 			{
-				statusCode: 204,
-				body:       []byte(""),
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 		},
 	}
@@ -793,17 +794,17 @@ func TestDatabaseService_Integration(t *testing.T) {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	// Verify all requests used the correct serverID
+	// Verify all Requests used the correct serverID
 	expectedBasePath := fmt.Sprintf("/api/application/servers/%d/databases", serverID)
-	for i, req := range mock.requests {
-		if !strings.HasPrefix(req.endpoint, expectedBasePath) {
-			t.Errorf("request %d: expected endpoint to start with %s, got %s", i, expectedBasePath, req.endpoint)
+	for i, req := range mock.Requests {
+		if !strings.HasPrefix(req.Endpoint, expectedBasePath) {
+			t.Errorf("request %d: expected Endpoint to start with %s, got %s", i, expectedBasePath, req.Endpoint)
 		}
 	}
 
-	// Verify we made exactly 5 requests
-	if len(mock.requests) != 5 {
-		t.Errorf("expected 5 requests, got %d", len(mock.requests))
+	// Verify we made exactly 5 Requests
+	if len(mock.Requests) != 5 {
+		t.Errorf("expected 5 Requests, got %d", len(mock.Requests))
 	}
 }
 
@@ -815,7 +816,7 @@ func TestDatabaseService_EdgeCases(t *testing.T) {
 		serverID      int
 		databaseID    int
 		options       api.DatabaseCreateOptions
-		mockResponse  mockResponse
+		mockResponse  testutil.MockResponse
 		expectedError bool
 		description   string
 	}{
@@ -823,9 +824,9 @@ func TestDatabaseService_EdgeCases(t *testing.T) {
 			name:       "Zero server ID",
 			serverID:   0,
 			databaseID: 123,
-			mockResponse: mockResponse{
-				statusCode: 204,
-				body:       []byte(""),
+			mockResponse: testutil.MockResponse{
+				StatusCode: 204,
+				Body:       []byte(""),
 			},
 			expectedError: false,
 			description:   "Should handle zero server ID gracefully",
@@ -834,9 +835,9 @@ func TestDatabaseService_EdgeCases(t *testing.T) {
 			name:       "Negative database ID",
 			serverID:   1,
 			databaseID: -1,
-			mockResponse: mockResponse{
-				statusCode: 400,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 400,
+				Body: []byte(`{
 					"errors": [{
 						"code": "BadRequestHttpException",
 						"status": "400",
@@ -854,9 +855,9 @@ func TestDatabaseService_EdgeCases(t *testing.T) {
 				DatabaseName: "",
 				Remote:       "%",
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -874,9 +875,9 @@ func TestDatabaseService_EdgeCases(t *testing.T) {
 				DatabaseName: "test_db",
 				Remote:       "",
 			},
-			mockResponse: mockResponse{
-				statusCode: 422,
-				body: []byte(`{
+			mockResponse: testutil.MockResponse{
+				StatusCode: 422,
+				Body: []byte(`{
 					"errors": [{
 						"code": "ValidationHttpException",
 						"status": "422",
@@ -891,8 +892,8 @@ func TestDatabaseService_EdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockRequester{
-				responses: []mockResponse{tc.mockResponse},
+			mock := &testutil.MockRequester{
+				Responses: []testutil.MockResponse{tc.mockResponse},
 			}
 
 			service := newDatabaseService(mock, tc.serverID)
@@ -924,11 +925,11 @@ func TestDatabaseService_DataValidation(t *testing.T) {
 	t.Parallel()
 
 	// Test that database data is properly parsed
-	mock := &mockRequester{
-		responses: []mockResponse{
+	mock := &testutil.MockRequester{
+		Responses: []testutil.MockResponse{
 			{
-				statusCode: 200,
-				body: []byte(`{
+				StatusCode: 200,
+				Body: []byte(`{
 					"object": "server_database",
 					"attributes": {
 						"id": 123,
