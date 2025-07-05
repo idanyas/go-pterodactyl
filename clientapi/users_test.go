@@ -113,8 +113,8 @@ func TestUsersService_Details(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		// Truncate time for comparison
-		expectedUser.CreatedAt = expectedUser.CreatedAt.Truncate(time.Second)
-		user.CreatedAt = user.CreatedAt.Truncate(time.Second)
+		expectedUser.CreatedAt = expectedUser.CreatedAt.UTC().Truncate(time.Second)
+		user.CreatedAt = user.CreatedAt.UTC().Truncate(time.Second)
 
 		if !reflect.DeepEqual(user, expectedUser) {
 			t.Errorf("expected user %+v, got %+v", expectedUser, user)
