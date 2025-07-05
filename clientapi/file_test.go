@@ -18,7 +18,8 @@ import (
 )
 
 func TestFilesService_List(t *testing.T) {
-	now := time.Now().Truncate(time.Second)
+	now := time.Now().UTC().Truncate(time.Second)
+
 	expectedFiles := []*api.FileObject{
 		{
 			Name:       "test.txt",
@@ -38,10 +39,10 @@ func TestFilesService_List(t *testing.T) {
 		},
 	}
 
-	// The API returns a list of FileObjectResponses
+	// API returns a list of FileObjectResponses
 	data := make([]*api.FileObjectResponse, len(expectedFiles))
-	for i, file := range expectedFiles {
-		data[i] = &api.FileObjectResponse{Object: "file_object", Attributes: file}
+	for i, f := range expectedFiles {
+		data[i] = &api.FileObjectResponse{Object: "file_object", Attributes: f}
 	}
 	res := api.FileListResponse{Object: "list", Data: data}
 	jsonBody, _ := json.Marshal(res)
@@ -51,14 +52,35 @@ func TestFilesService_List(t *testing.T) {
 			Responses: []testutil.MockResponse{{StatusCode: http.StatusOK, Body: jsonBody}},
 		}
 		s := newFilesService(mock, testServerIdentifier)
+
 		files, err := s.List(context.Background(), "/data")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
+		// ---- Normalise CreatedAt / ModifiedAt to a common Location ----
+		normaliseTimes := func(objs []*api.FileObject) {
+			for _, o := range objs {
+				if !o.CreatedAt.IsZero() {
+					o.CreatedAt = o.CreatedAt.UTC().Truncate(time.Second)
+				}
+				if !o.ModifiedAt.IsZero() {
+					o.ModifiedAt = o.ModifiedAt.UTC().Truncate(time.Second)
+				}
+			}
+		}
+		normaliseTimes(expectedFiles)
+		normaliseTimes(files)
+		// ---------------------------------------------------------------
+
 		if !reflect.DeepEqual(files, expectedFiles) {
 			t.Errorf("expected files %+v, got %+v", expectedFiles, files)
 		}
-		expectedEndpoint := fmt.Sprintf("/api/client/servers/%s/files/list?directory=%s", testServerIdentifier, url.QueryEscape("/data"))
+
+		expectedEndpoint := fmt.Sprintf(
+			"/api/client/servers/%s/files/list?directory=%s",
+			testServerIdentifier, url.QueryEscape("/data"),
+		)
 		if mock.Requests[0].Endpoint != expectedEndpoint {
 			t.Errorf("expected endpoint %s, got %s", expectedEndpoint, mock.Requests[0].Endpoint)
 		}

@@ -17,24 +17,41 @@ import (
 
 const testServerIdentifier = "test-server"
 
+func normaliseBackupTimes(b *api.Backup) {
+	if !b.CreatedAt.IsZero() {
+		b.CreatedAt = b.CreatedAt.UTC().Truncate(time.Second)
+	}
+	if b.CompletedAt != nil && !b.CompletedAt.IsZero() {
+		t := b.CompletedAt.UTC().Truncate(time.Second)
+		b.CompletedAt = &t
+	}
+}
+
+func normaliseBackupSlice(list []*api.Backup) {
+	for _, b := range list {
+		normaliseBackupTimes(b)
+	}
+}
+
 func TestBackupsService_List(t *testing.T) {
-	now := time.Now().Truncate(time.Second)
+	now := time.Now().UTC().Truncate(time.Second)
 	checksum := "test-checksum"
+
 	expectedBackups := []*api.Backup{
 		{
 			UUID:         "uuid1",
+			Name:         "backup1",
 			IsSuccessful: true,
 			IsLocked:     false,
-			Name:         "backup1",
 			Bytes:        1024,
 			CreatedAt:    now,
 			CompletedAt:  &now,
 		},
 		{
 			UUID:         "uuid2",
+			Name:         "backup2",
 			IsSuccessful: true,
 			IsLocked:     true,
-			Name:         "backup2",
 			IgnoredFiles: []string{"/ignore.txt"},
 			Checksum:     &checksum,
 			Bytes:        2048,
@@ -44,38 +61,38 @@ func TestBackupsService_List(t *testing.T) {
 	}
 
 	data := make([]*api.ListItem[api.Backup], len(expectedBackups))
-	for i, backup := range expectedBackups {
-		data[i] = &api.ListItem[api.Backup]{Object: "backup", Attributes: backup}
+	for i, b := range expectedBackups {
+		data[i] = &api.ListItem[api.Backup]{Object: "backup", Attributes: b}
 	}
 	meta := api.Meta{Pagination: api.Pagination{Total: 2, PerPage: 25, CurrentPage: 1, TotalPages: 1}}
-	res := api.PaginatedResponse[api.Backup]{
-		Object: "list",
-		Data:   data,
-		Meta:   meta,
-	}
+	res := api.PaginatedResponse[api.Backup]{Object: "list", Data: data, Meta: meta}
 	jsonBody, _ := json.Marshal(res)
 
 	t.Run("success", func(t *testing.T) {
 		mock := &testutil.MockRequester{
-			Responses: []testutil.MockResponse{{
-				StatusCode: http.StatusOK,
-				Body:       jsonBody,
-			}},
+			Responses: []testutil.MockResponse{{StatusCode: http.StatusOK, Body: jsonBody}},
 		}
 		s := newBackupsService(mock, testServerIdentifier)
+
 		backups, m, err := s.List(context.Background(), api.PaginationOptions{Page: 1})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
+		// normalise Location pointers before DeepEqual
+		normaliseBackupSlice(expectedBackups)
+		normaliseBackupSlice(backups)
+
 		if !reflect.DeepEqual(backups, expectedBackups) {
 			t.Errorf("expected backups %+v, got %+v", expectedBackups, backups)
 		}
 		if !reflect.DeepEqual(m, &meta) {
 			t.Errorf("expected meta %+v, got %+v", &meta, m)
 		}
+
 		req := mock.Requests[0]
 		if req.Method != http.MethodGet {
-			t.Errorf("expected method %s, got %s", http.MethodGet, req.Method)
+			t.Errorf("expected method GET, got %s", req.Method)
 		}
 		expectedEndpoint := fmt.Sprintf("/api/client/servers/%s/backups", testServerIdentifier)
 		if req.Endpoint != expectedEndpoint {
@@ -91,8 +108,7 @@ func TestBackupsService_List(t *testing.T) {
 			}},
 		}
 		s := newBackupsService(mock, testServerIdentifier)
-		_, _, err := s.List(context.Background(), api.PaginationOptions{})
-		if err == nil {
+		if _, _, err := s.List(context.Background(), api.PaginationOptions{}); err == nil {
 			t.Fatal("expected an error, got nil")
 		}
 	})
@@ -105,34 +121,34 @@ func TestBackupsService_Create(t *testing.T) {
 
 	expectedBackup := &api.Backup{
 		UUID:         "new-uuid",
-		IsSuccessful: false, // In progress
+		IsSuccessful: false, // still running
 		Name:         name,
-		CreatedAt:    time.Now().Truncate(time.Second),
+		CreatedAt:    time.Now().UTC().Truncate(time.Second),
 	}
-	res := api.BackupResponse{
-		Object:     "backup",
-		Attributes: expectedBackup,
-	}
+	res := api.BackupResponse{Object: "backup", Attributes: expectedBackup}
 	jsonBody, _ := json.Marshal(res)
 
 	t.Run("success", func(t *testing.T) {
 		mock := &testutil.MockRequester{
-			Responses: []testutil.MockResponse{{
-				StatusCode: http.StatusOK, // The API returns 200 on create
-				Body:       jsonBody,
-			}},
+			Responses: []testutil.MockResponse{{StatusCode: http.StatusOK, Body: jsonBody}},
 		}
 		s := newBackupsService(mock, testServerIdentifier)
+
 		backup, err := s.Create(context.Background(), options)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
+		normaliseBackupTimes(expectedBackup)
+		normaliseBackupTimes(backup)
+
 		if !reflect.DeepEqual(backup, expectedBackup) {
 			t.Errorf("expected backup %+v, got %+v", expectedBackup, backup)
 		}
+
 		req := mock.Requests[0]
 		if req.Method != http.MethodPost {
-			t.Errorf("expected method %s, got %s", http.MethodPost, req.Method)
+			t.Errorf("expected method POST, got %s", req.Method)
 		}
 		if !bytes.Equal(req.Body, jsonOptions) {
 			t.Errorf("expected body %s, got %s", jsonOptions, req.Body)
@@ -147,8 +163,7 @@ func TestBackupsService_Create(t *testing.T) {
 			}},
 		}
 		s := newBackupsService(mock, testServerIdentifier)
-		_, err := s.Create(context.Background(), options)
-		if err == nil {
+		if _, err := s.Create(context.Background(), options); err == nil {
 			t.Fatal("expected an error, got nil")
 		}
 	})
@@ -158,32 +173,32 @@ func TestBackupsService_Details(t *testing.T) {
 	uuid := "test-uuid"
 	expectedBackup := &api.Backup{
 		UUID:         uuid,
-		IsSuccessful: true,
 		Name:         "details-backup",
+		IsSuccessful: true,
 		Bytes:        4096,
-		CreatedAt:    time.Now().Truncate(time.Second),
+		CreatedAt:    time.Now().UTC().Truncate(time.Second),
 	}
-	res := api.BackupResponse{
-		Object:     "backup",
-		Attributes: expectedBackup,
-	}
+	res := api.BackupResponse{Object: "backup", Attributes: expectedBackup}
 	jsonBody, _ := json.Marshal(res)
 
 	t.Run("success", func(t *testing.T) {
 		mock := &testutil.MockRequester{
-			Responses: []testutil.MockResponse{{
-				StatusCode: http.StatusOK,
-				Body:       jsonBody,
-			}},
+			Responses: []testutil.MockResponse{{StatusCode: http.StatusOK, Body: jsonBody}},
 		}
 		s := newBackupsService(mock, testServerIdentifier)
+
 		backup, err := s.Details(context.Background(), uuid)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
+		normaliseBackupTimes(expectedBackup)
+		normaliseBackupTimes(backup)
+
 		if !reflect.DeepEqual(backup, expectedBackup) {
 			t.Errorf("expected backup %+v, got %+v", expectedBackup, backup)
 		}
+
 		req := mock.Requests[0]
 		expectedEndpoint := fmt.Sprintf("/api/client/servers/%s/backups/%s", testServerIdentifier, uuid)
 		if req.Endpoint != expectedEndpoint {
@@ -199,8 +214,7 @@ func TestBackupsService_Details(t *testing.T) {
 			}},
 		}
 		s := newBackupsService(mock, testServerIdentifier)
-		_, err := s.Details(context.Background(), uuid)
-		if err == nil {
+		if _, err := s.Details(context.Background(), uuid); err == nil {
 			t.Fatal("expected an error, got nil")
 		}
 	})

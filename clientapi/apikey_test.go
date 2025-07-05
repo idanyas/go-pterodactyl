@@ -14,9 +14,25 @@ import (
 	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 )
 
+func normaliseKeyTimes(k *api.APIKey) {
+	if !k.CreatedAt.IsZero() {
+		k.CreatedAt = k.CreatedAt.UTC().Truncate(time.Second)
+	}
+	if k.LastUsedAt != nil && !k.LastUsedAt.IsZero() {
+		t := k.LastUsedAt.UTC().Truncate(time.Second)
+		k.LastUsedAt = &t
+	}
+}
+
+func normaliseKeySlice(list []*api.APIKey) {
+	for _, k := range list {
+		normaliseKeyTimes(k)
+	}
+}
+
 func TestAPIKeysService_List(t *testing.T) {
-	// Truncate to remove monotonic clock reading for accurate comparison after marshalling.
-	now := time.Now().Truncate(time.Second)
+	now := time.Now().UTC().Truncate(time.Second)
+
 	expectedKeys := []*api.APIKey{
 		{
 			Identifier:  "key1",
@@ -35,36 +51,34 @@ func TestAPIKeysService_List(t *testing.T) {
 	}
 
 	data := make([]*api.ListItem[api.APIKey], len(expectedKeys))
-	for i, key := range expectedKeys {
-		data[i] = &api.ListItem[api.APIKey]{Object: "api_key", Attributes: key}
+	for i, k := range expectedKeys {
+		data[i] = &api.ListItem[api.APIKey]{Object: "api_key", Attributes: k}
 	}
-
 	meta := api.Meta{Pagination: api.Pagination{Total: 2, PerPage: 25, CurrentPage: 1, TotalPages: 1}}
-	res := api.PaginatedResponse[api.APIKey]{
-		Object: "list",
-		Data:   data,
-		Meta:   meta,
-	}
+	res := api.PaginatedResponse[api.APIKey]{Object: "list", Data: data, Meta: meta}
 	jsonBody, _ := json.Marshal(res)
 
 	t.Run("success", func(t *testing.T) {
 		mock := &testutil.MockRequester{
-			Responses: []testutil.MockResponse{{
-				StatusCode: http.StatusOK,
-				Body:       jsonBody,
-			}},
+			Responses: []testutil.MockResponse{{StatusCode: http.StatusOK, Body: jsonBody}},
 		}
 		s := newAPIKeysService(mock)
+
 		keys, m, err := s.List(context.Background(), api.PaginationOptions{Page: 1})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
+		normaliseKeySlice(expectedKeys)
+		normaliseKeySlice(keys)
+
 		if !reflect.DeepEqual(keys, expectedKeys) {
 			t.Errorf("expected keys %+v, got %+v", expectedKeys, keys)
 		}
 		if !reflect.DeepEqual(m, &meta) {
 			t.Errorf("expected meta %+v, got %+v", &meta, m)
 		}
+
 		req := mock.Requests[0]
 		if req.Method != http.MethodGet {
 			t.Errorf("expected method %s, got %s", http.MethodGet, req.Method)
@@ -82,8 +96,7 @@ func TestAPIKeysService_List(t *testing.T) {
 			}},
 		}
 		s := newAPIKeysService(mock)
-		_, _, err := s.List(context.Background(), api.PaginationOptions{})
-		if err == nil {
+		if _, _, err := s.List(context.Background(), api.PaginationOptions{}); err == nil {
 			t.Fatal("expected an error, got nil")
 		}
 	})
@@ -97,8 +110,8 @@ func TestAPIKeysService_Create(t *testing.T) {
 	jsonOptions, _ := json.Marshal(options)
 
 	token := "secret-token-shh"
-	now := time.Now().Truncate(time.Second)
-	// This is the key we expect to get back from the service, with the token populated.
+	now := time.Now().UTC().Truncate(time.Second)
+
 	expectedKey := &api.APIKey{
 		Identifier:  "new_key",
 		Description: options.Description,
@@ -107,8 +120,6 @@ func TestAPIKeysService_Create(t *testing.T) {
 		Token:       &token,
 	}
 
-	// This is what the mock requester will return as the body.
-	// Note the response does not include the token in the attributes.
 	res := api.APIKeyCreateResponse{
 		Object: "api_key",
 		Attributes: api.APIKey{
@@ -125,19 +136,22 @@ func TestAPIKeysService_Create(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		mock := &testutil.MockRequester{
-			Responses: []testutil.MockResponse{{
-				StatusCode: http.StatusCreated,
-				Body:       jsonBody,
-			}},
+			Responses: []testutil.MockResponse{{StatusCode: http.StatusCreated, Body: jsonBody}},
 		}
 		s := newAPIKeysService(mock)
+
 		key, err := s.Create(context.Background(), options)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
+		normaliseKeyTimes(expectedKey)
+		normaliseKeyTimes(key)
+
 		if !reflect.DeepEqual(key, expectedKey) {
 			t.Errorf("expected key %+v, got %+v", expectedKey, key)
 		}
+
 		req := mock.Requests[0]
 		if req.Method != http.MethodPost {
 			t.Errorf("expected method %s, got %s", http.MethodPost, req.Method)
@@ -155,8 +169,7 @@ func TestAPIKeysService_Create(t *testing.T) {
 			}},
 		}
 		s := newAPIKeysService(mock)
-		_, err := s.Create(context.Background(), options)
-		if err == nil {
+		if _, err := s.Create(context.Background(), options); err == nil {
 			t.Fatal("expected an error, got nil")
 		}
 	})
