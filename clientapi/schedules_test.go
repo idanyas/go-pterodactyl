@@ -16,7 +16,8 @@ import (
 )
 
 func TestSchedulesService_List(t *testing.T) {
-	now := time.Now().Truncate(time.Second)
+	now := time.Now().UTC().Truncate(time.Second)
+
 	expectedSchedules := []*api.Schedule{
 		{ID: 1, Name: "Daily Restart", IsActive: true, CreatedAt: now},
 		{ID: 2, Name: "Weekly Backup", IsActive: false, CreatedAt: now},
@@ -26,11 +27,7 @@ func TestSchedulesService_List(t *testing.T) {
 		data[i] = &api.ListItem[api.Schedule]{Object: "schedule", Attributes: s}
 	}
 	meta := api.Meta{Pagination: api.Pagination{Total: 2, PerPage: 25, CurrentPage: 1, TotalPages: 1}}
-	res := api.PaginatedResponse[api.Schedule]{
-		Object: "list",
-		Data:   data,
-		Meta:   meta,
-	}
+	res := api.PaginatedResponse[api.Schedule]{Object: "list", Data: data, Meta: meta}
 	jsonBody, _ := json.Marshal(res)
 
 	t.Run("success", func(t *testing.T) {
@@ -38,10 +35,21 @@ func TestSchedulesService_List(t *testing.T) {
 			Responses: []testutil.MockResponse{{StatusCode: http.StatusOK, Body: jsonBody}},
 		}
 		s := newSchedulesService(mock, testServerIdentifier)
+
 		schedules, m, err := s.List(context.Background(), api.PaginationOptions{})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
+		// ---- Normalise CreatedAt so zone pointers are identical ----
+		normaliseTimes := func(list []*api.Schedule) {
+			for _, sch := range list {
+				sch.CreatedAt = sch.CreatedAt.UTC().Truncate(time.Second)
+			}
+		}
+		normaliseTimes(expectedSchedules)
+		normaliseTimes(schedules)
+
 		if !reflect.DeepEqual(schedules, expectedSchedules) {
 			t.Errorf("expected schedules %+v, got %+v", expectedSchedules, schedules)
 		}
