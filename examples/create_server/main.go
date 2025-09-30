@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/davidarkless/go-pterodactyl"
-	"github.com/davidarkless/go-pterodactyl/api"
 	"log"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/idanyas/go-pterodactyl"
+	"github.com/idanyas/go-pterodactyl/api"
 )
 
 // ptr is a tiny helper that returns a pointer to the value passed in. This is

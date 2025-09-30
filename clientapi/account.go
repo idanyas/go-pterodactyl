@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/davidarkless/go-pterodactyl/api"
-	"github.com/davidarkless/go-pterodactyl/internal/requester"
+
+	"github.com/idanyas/go-pterodactyl/api"
+	"github.com/idanyas/go-pterodactyl/internal/requester"
 )
 
 type accountService struct{ client requester.Requester }

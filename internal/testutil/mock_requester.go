@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/davidarkless/go-pterodactyl/api"
-	"github.com/davidarkless/go-pterodactyl/errors"
 	"io"
 	"net/http"
+
+	"github.com/idanyas/go-pterodactyl/api"
+	"github.com/idanyas/go-pterodactyl/errors"
 )
 
 // mockRequester implements the requester.Requester interface for testing

@@ -3,8 +3,8 @@
 An unofficial go SDK for the pterodactyl panel.
 It covers both the Application (admin) and Client(user) APIs.
 
-
 ## Features
+
 - Complete coverage of Application & Client endpoints
 - ⚙Generics remove response‑unmarshalling boiler‑plate
 - Context passed through every method for cancellation, time‑outs & tracing
@@ -26,5 +26,6 @@ if err != nil { log.Fatal(err) }
 fmt.Printf("There are %d nodes\n", len(nodes))
 ```
 
-## Installation 
-go get github.com/davidarkless/go‑pterodactyl@latest
+## Installation
+
+go get github.com/idanyas/go‑pterodactyl@latest

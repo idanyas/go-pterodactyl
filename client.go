@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/davidarkless/go-pterodactyl/api"
-	"github.com/davidarkless/go-pterodactyl/appapi"
-	"github.com/davidarkless/go-pterodactyl/clientapi"
-	"github.com/davidarkless/go-pterodactyl/errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/idanyas/go-pterodactyl/api"
+	"github.com/idanyas/go-pterodactyl/appapi"
+	"github.com/idanyas/go-pterodactyl/clientapi"
+	"github.com/idanyas/go-pterodactyl/errors"
 )
 
 // ---------------------------------------------------------------------------

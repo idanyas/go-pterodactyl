@@ -1,3 +1,3 @@
-module github.com/davidarkless/go-pterodactyl
+module github.com/idanyas/go-pterodactyl
 
 go 1.18

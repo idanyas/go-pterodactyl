@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/davidarkless/go-pterodactyl"
 	"log"
 	"os"
 	"time"
+
+	"github.com/idanyas/go-pterodactyl"
 )
 
 func main() {

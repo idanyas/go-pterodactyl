@@ -2,9 +2,10 @@ package requester
 
 import (
 	"context"
-	"github.com/davidarkless/go-pterodactyl/api"
 	"io"
 	"net/http"
+
+	"github.com/idanyas/go-pterodactyl/api"
 )
 
 type Requester interface {

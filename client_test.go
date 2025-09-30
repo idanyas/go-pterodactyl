@@ -2,8 +2,9 @@ package pterodactyl_test
 
 import (
 	"context"
-	"github.com/davidarkless/go-pterodactyl"
 	"testing"
+
+	"github.com/idanyas/go-pterodactyl"
 )
 
 func TestNewClientSuccess(t *testing.T) {

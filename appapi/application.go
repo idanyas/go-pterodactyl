@@ -2,7 +2,8 @@ package appapi
 
 import (
 	"context"
-	"github.com/davidarkless/go-pterodactyl/api"
+
+	"github.com/idanyas/go-pterodactyl/api"
 )
 
 type AllocationsService interface {

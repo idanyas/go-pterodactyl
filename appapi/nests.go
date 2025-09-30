@@ -2,9 +2,10 @@ package appapi
 
 import (
 	"context"
-	"github.com/davidarkless/go-pterodactyl/api"
-	"github.com/davidarkless/go-pterodactyl/internal/crud"
-	"github.com/davidarkless/go-pterodactyl/internal/requester"
+
+	"github.com/idanyas/go-pterodactyl/api"
+	"github.com/idanyas/go-pterodactyl/internal/crud"
+	"github.com/idanyas/go-pterodactyl/internal/requester"
 )
 
 type nestsService struct {

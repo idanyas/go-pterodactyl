@@ -3,11 +3,12 @@ package appapi
 import (
 	"context"
 	"fmt"
-	"github.com/davidarkless/go-pterodactyl/internal/testutil"
 	"strings"
 	"testing"
 
-	"github.com/davidarkless/go-pterodactyl/api"
+	"github.com/idanyas/go-pterodactyl/internal/testutil"
+
+	"github.com/idanyas/go-pterodactyl/api"
 )
 
 func TestAllocationsService_List(t *testing.T) {
