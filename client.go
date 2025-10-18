@@ -1,188 +1,141 @@
+// Package pterodactyl provides a comprehensive Go client for the Pterodactyl Panel API.
 package pterodactyl
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/idanyas/go-pterodactyl/api"
-	"github.com/idanyas/go-pterodactyl/appapi"
-	"github.com/idanyas/go-pterodactyl/clientapi"
-	"github.com/idanyas/go-pterodactyl/errors"
+	"github.com/idanyas/go-pterodactyl/application"
+	"github.com/idanyas/go-pterodactyl/client"
+	"github.com/idanyas/go-pterodactyl/pagination"
+	"github.com/idanyas/go-pterodactyl/transport"
 )
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
-// KeyType distinguishes admin (Application) and user (Client) tokens.
-// Prefix verification in NewClient guards accidental mix‑ups.
-type KeyType int
 
 const (
-	ApplicationKey KeyType = iota
-	ClientKey
+	// APIVersion is the version of the Pterodactyl API this client targets.
+	APIVersion = "v1"
+	// defaultUserAgent is the default User-Agent header sent with requests.
+	defaultUserAgent = "go-pterodactyl/v1.0"
 )
 
-// Client is the root value of the SDK.  It is cheap to create but holds a
-// connection‑pooled *http.Client that ***must be reused*** instead of creating a
-// new one per request.
-//
-//   sdk, _ := pterodactyl.NewClient(baseURL, token, pterodactyl.ApplicationKey)
-//   nodes, _ := sdk.ApplicationAPI.Nodes.ListAll(ctx, 0)
-//
-// Client is ***safe for concurrent use*** by multiple goroutines.
-//
-// Functional options allow callers to insert their own *http.Client or
-// http.RoundTripper when tighter time‑outs, custom proxies, or tracing is
-// required.
-//   retryTr := retrace.NewRoundTripper(http.DefaultTransport)
-//   sdk, _ := pterodactyl.NewClient(baseURL, token, key,
-//       pterodactyl.WithTransport(retryTr))
-//
-// Any zero‑value field not set by an option receives a sensible default.
-//
-// Note: xAPIService fields are exported so that external code can embed or
-// stub them in tests.
-// ---------------------------------------------------------------------------
+// ListOptions specifies optional parameters to list methods.
+// It is an alias for pagination.ListOptions.
+type ListOptions = pagination.ListOptions
 
+// Client is the primary client for interacting with the Pterodactyl API.
+// It provides access to the Application and Client APIs.
 type Client struct {
-	baseURL    string
+	baseURL    *url.URL
 	apiKey     string
 	httpClient *http.Client
 
-	ApplicationAPI *appapi.ApplicationAPIService
-	ClientAPI      *clientapi.ClientAPIService
+	// API Clients
+	app    application.ApplicationClient
+	client client.ClientClient
 }
 
-// Option configures a Client instance lazily.
-// Implemented via functional‑options pattern.
-// "With…" helpers live below.
-//
-// Options are **applied in the order passed** to NewClient; later options may
-// overwrite earlier ones.
-// ---------------------------------------------------------------------------
-
+// Option is a functional option for configuring a Client.
 type Option func(*Client)
 
-// WithHTTPClient replaces the default http.Client entirely.
-//
-//	c, _ := pterodactyl.NewClient(baseURL, key, t, pterodactyl.WithHTTPClient(my))
-func WithHTTPClient(hc *http.Client) Option {
-	return func(c *Client) { c.httpClient = hc }
-}
-
-// WithTransport swaps only the underlying RoundTripper, keeping other settings
-// (Timeout, Jar…) untouched.
-func WithTransport(rt http.RoundTripper) Option {
+// WithAPIKey sets the API key to be used for authentication.
+// The key should be prefixed with `ptla_` for the Application API
+// or `ptlc_` for the Client API.
+func WithAPIKey(key string) Option {
 	return func(c *Client) {
-		if c.httpClient == nil {
-			c.httpClient = &http.Client{Transport: rt}
-			return
-		}
-		c.httpClient.Transport = rt
+		c.apiKey = key
 	}
 }
 
-// WithTimeout changes the http.Client.Timeout – handy for short‑lived CLI
-// programs.
-func WithTimeout(d time.Duration) Option {
+// WithHTTPClient sets a custom http.Client for the Pterodactyl client.
+// This is useful for configuring custom transports, timeouts, or other settings.
+func WithHTTPClient(httpClient *http.Client) Option {
 	return func(c *Client) {
-		if c.httpClient == nil {
-			c.httpClient = &http.Client{Timeout: d}
-			return
-		}
-		c.httpClient.Timeout = d
+		c.httpClient = httpClient
 	}
 }
 
-// NewClient validates the arguments, builds a reusable SDK instance and applies
-// any functional options.
-// baseURL must be scheme+host, apiKey must start with ptla_ or ptlc_.
+// New creates a new Pterodactyl API client.
 //
-// Recommended default http.Client timeout is 10s – callers can override via
-// WithTimeout.
-// ---------------------------------------------------------------------------
-
-func NewClient(baseURL, apiKey string, keyType KeyType, opts ...Option) (*Client, error) {
-	// ----- token sanity check -------------------------------------------------
-	if keyType == ApplicationKey && !strings.HasPrefix(apiKey, "ptla_") {
-		return nil, fmt.Errorf("invalid application key: must start with 'ptla_'")
-	}
-	if keyType == ClientKey && !strings.HasPrefix(apiKey, "ptlc_") {
-		return nil, fmt.Errorf("invalid client key: must start with 'ptlc_'")
+// panelURL is the base URL of the Pterodactyl panel (e.g., "https://panel.example.com").
+// opts are functional options to configure the client, such as setting the API key.
+func New(panelURL string, opts ...Option) (*Client, error) {
+	if panelURL == "" {
+		return nil, fmt.Errorf("panelURL cannot be empty")
 	}
 
-	// ----- URL sanity check ---------------------------------------------------
-	if _, err := url.ParseRequestURI(baseURL); err != nil {
-		return nil, fmt.Errorf("invalid baseURL: %w", err)
+	baseURL, err := url.Parse(strings.TrimRight(panelURL, "/") + "/api/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse panelURL: %w", err)
 	}
 
-	// ----- construct default instance ----------------------------------------
 	c := &Client{
-		baseURL:    baseURL,
-		apiKey:     apiKey,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		baseURL: baseURL,
 	}
 
-	// Apply caller‑supplied options
-	for _, o := range opts {
-		o(c)
+	for _, opt := range opts {
+		opt(c)
 	}
 
-	// ----- wire sub‑services --------------------------------------------------
-	c.ApplicationAPI = &appapi.ApplicationAPIService{}
-	c.ApplicationAPI.Users = appapi.NewUsersService(c)
-	c.ApplicationAPI.Nodes = appapi.NewNodesService(c)
-	c.ApplicationAPI.Locations = appapi.NewLocationService(c)
-	c.ApplicationAPI.Servers = appapi.NewServersService(c)
-	c.ApplicationAPI.Nests = appapi.NewNestsService(c)
+	if c.httpClient == nil {
+		c.httpClient = &http.Client{}
+	}
 
-	c.ClientAPI = clientapi.NewClientAPI(c)
+	// Decorate the transport with authentication, rate limiting, and retries.
+	baseTransport := c.httpClient.Transport
+	if baseTransport == nil {
+		baseTransport = http.DefaultTransport
+	}
+	c.httpClient.Transport = transport.New(
+		baseTransport,
+		c.apiKey,
+		APIVersion,
+		defaultUserAgent,
+	)
+
+	c.app = application.New(c)
+	c.client = client.New(c)
 
 	return c, nil
 }
 
-func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body io.Reader, options *api.PaginationOptions) (*http.Request, error) {
+// Application returns a client for interacting with the Application API.
+func (c *Client) Application() application.ApplicationClient {
+	return c.app
+}
 
-	rel, err := url.Parse(endpoint)
+// Client returns a client for interacting with the Client API.
+func (c *Client) Client() client.ClientClient {
+	return c.client
+}
+
+// newRequest creates an API request. A relative URL path can be provided in path,
+// in which case it is resolved relative to the BaseURL of the Client.
+// Relative URLs should always be specified without a preceding slash.
+func (c *Client) newRequest(ctx context.Context, method, path string, body interface{}) (*http.Request, error) {
+	rel, err := url.Parse(path)
 	if err != nil {
 		return nil, err
 	}
+	u := c.baseURL.ResolveReference(rel)
 
-	if options != nil {
-		q := rel.Query()
-		if options.Page > 0 {
-			q.Set("page", strconv.Itoa(options.Page))
+	var r io.ReadWriter
+	if body != nil {
+		r = new(bytes.Buffer)
+		if err := json.NewEncoder(r).Encode(body); err != nil {
+			return nil, err
 		}
-		if options.PerPage > 0 {
-			q.Set("per_page", strconv.Itoa(options.PerPage))
-		}
-		if len(options.Include) > 0 {
-			q.Set("include", strings.Join(options.Include, ","))
-		}
-		rel.RawQuery = q.Encode()
 	}
 
-	u, err := url.Parse(c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), r)
 	if err != nil {
 		return nil, err
 	}
-	fullURL := u.ResolveReference(rel)
-
-	req, err := http.NewRequestWithContext(ctx, method, fullURL.String(), body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	req.Header.Set("Accept", "application/json")
 
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -191,53 +144,44 @@ func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body i
 	return req, nil
 }
 
-func (c *Client) Do(ctx context.Context, req *http.Request, v any) (*http.Response, error) {
-	req = req.WithContext(ctx)
-	res, err := c.httpClient.Do(req)
+// do sends an API request and returns the API response. The API response is
+// JSON decoded and stored in the value pointed to by v, or returned as an
+// error if an API error has occurred.
+func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, err
 	}
-	defer res.Body.Close() // ignore error
+	defer resp.Body.Close()
 
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		// Error handling logic
-		apiErr := &errors.APIError{HTTPStatusCode: res.StatusCode}
-		if err = json.NewDecoder(res.Body).Decode(&apiErr); err != nil {
-			return nil, fmt.Errorf("pterodactyl: API error (status %d), failed to parse error response: %w", res.StatusCode, err)
-		}
-		return nil, apiErr
+	if err := CheckResponse(resp); err != nil {
+		return resp, err
 	}
 
-	// If v is not nil, decode the successful response body into it.
 	if v != nil {
-		if err = json.NewDecoder(res.Body).Decode(v); err != nil {
-			return nil, fmt.Errorf("failed to decode successful response: %w", err)
+		if w, ok := v.(io.Writer); ok {
+			_, err = io.Copy(w, resp.Body)
+		} else {
+			err = json.NewDecoder(resp.Body).Decode(v)
+		}
+		if err == io.EOF {
+			err = nil // ignore EOF errors caused by empty response bodies
 		}
 	}
 
-	return res, nil
+	return resp, err
 }
 
-// unmarshalList is an internal helper that decodes a paginated list response
-// from the Pterodactyl API and flattens it into a simple slice of models.
-// It uses generics to work with any model type (api.User, api.Server, etc.).
-func unmarshalList[T any](body io.Reader) ([]*T, *api.Meta, error) {
-	// Create an instance of our generic response wrapper.
-	// We pass the type T to it.
-	response := &api.PaginatedResponse[T]{}
-
-	// Decode the entire JSON response into our struct.
-	if err := json.NewDecoder(body).Decode(response); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode api list response: %w", err)
+// Do performs a request. It is the underlying method for all API calls.
+func (c *Client) Do(ctx context.Context, method, path string, body, v interface{}) (*http.Response, error) {
+	req, err := c.newRequest(ctx, method, path, body)
+	if err != nil {
+		return nil, err
 	}
+	return c.do(req, v)
+}
 
-	// Flatten the nested structure into a simple slice of models.
-	// This is the logic you wanted to avoid repeating!
-	results := make([]*T, len(response.Data))
-	for i, item := range response.Data {
-		results[i] = item.Attributes
-	}
-
-	// Return the flattened list, the pagination metadata, and no error.
-	return results, &response.Meta, nil
+// DoRequest performs a raw request, allowing for more control.
+func (c *Client) DoRequest(req *http.Request, v interface{}) (*http.Response, error) {
+	return c.do(req, v)
 }

@@ -1,139 +1,170 @@
-package pterodactyl_test
+package pterodactyl
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"reflect"
 	"testing"
-
-	"github.com/idanyas/go-pterodactyl"
 )
 
-func TestNewClientSuccess(t *testing.T) {
-
-	t.Parallel()
-
-	testCases := []struct {
-		name          string
-		apiKey        string
-		keyType       pterodactyl.KeyType
-		expectedError bool
-	}{
-		{
-			name:          "Valid ApplicationAPI Key",
-			apiKey:        "ptla_abc123", // A dummy key with the correct prefix
-			keyType:       pterodactyl.ApplicationKey,
-			expectedError: false,
-		},
-		{
-			name:          "Valid ClientAPI Key",
-			apiKey:        "ptlc_def456", // A dummy key with the correct prefix
-			keyType:       pterodactyl.ClientKey,
-			expectedError: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			client, err := pterodactyl.NewClient("https://fake-panel.com", tc.apiKey, tc.keyType)
-
-			if tc.expectedError {
-				if err == nil {
-					t.Errorf("expected an error but got none")
-				}
-			} else {
-				if err != nil {
-					t.Fatalf("expected no error but got: %v", err)
-				}
-
-				// On success, we should also check that the client is not nil and its services are initialized.
-				if client == nil {
-					t.Fatal("expected client to be non-nil on success")
-				}
-				if client.ApplicationAPI == nil {
-					t.Error("expected ApplicationAPI service to be initialized")
-				}
-				if client.ClientAPI == nil {
-					t.Error("expected ClientAPI service to be initialized")
-				}
-			}
-		})
-	}
+// setup sets up a test HTTP server along with a Client that is
+// configured to talk to that server. It returns the mux, server URL, and teardown function.
+func setup() (mux *http.ServeMux, serverURL string, teardown func()) {
+	mux = http.NewServeMux()
+	server := httptest.NewServer(mux)
+	return mux, server.URL, server.Close
 }
 
-// TestNewClient_InvalidKeyFormat checks for errors when API keys have incorrect prefixes.
-func TestNewClient_InvalidKeyFormat(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name          string
-		apiKey        string
-		keyType       pterodactyl.KeyType
-		expectedError bool
-	}{
-		{
-			name:          "Invalid ApplicationAPI Key",
-			apiKey:        "ptlc_wrongprefix", // A client key prefix used for an application client
-			keyType:       pterodactyl.ApplicationKey,
-			expectedError: true,
-		},
-		{
-			name:          "Invalid ClientAPI Key",
-			apiKey:        "ptla_wrongprefix", // An application key prefix used for a client client
-			keyType:       pterodactyl.ClientKey,
-			expectedError: true,
-		},
-		{
-			name:          "ApplicationAPI Key without prefix",
-			apiKey:        "noprefix",
-			keyType:       pterodactyl.ApplicationKey,
-			expectedError: true,
-		},
-		{
-			name:          "ClientAPI Key without prefix",
-			apiKey:        "noprefix",
-			keyType:       pterodactyl.ClientKey,
-			expectedError: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := pterodactyl.NewClient("https://fake-panel.com", tc.apiKey, tc.keyType)
-
-			if !tc.expectedError {
-				if err != nil {
-					t.Errorf("expected no error but got: %v", err)
-				}
-			} else {
-				if err == nil {
-					t.Errorf("expected an error for invalid key format but got none")
-				}
-			}
-		})
-	}
-}
-
-// TestNewClient_InvalidURL demonstrates testing for a malformed base URL.
-// While this case might be less common, it's good practice to ensure robustness.
-func TestNewClient_InvalidURL(t *testing.T) {
-	t.Parallel()
-
-	// This is a special character that will cause url.Parse to fail in NewRequest
-	malformedURL := "::not a valid url"
-
-	client, err := pterodactyl.NewClient(malformedURL, "ptlc_dummykey", pterodactyl.ClientKey)
+func testClient(t *testing.T, serverURL string) *Client {
+	t.Helper()
+	client, err := New(serverURL, WithAPIKey("test-key"))
 	if err != nil {
-		// The error doesn't happen in NewClient itself, but on the first request.
-		// Let's test that by trying to make a request.
-		// Since we can't access client.NewRequest directly (it's unexported in our test package),
-		// we test a public method that uses it.
-		// We'll need to update the client.go NewClient to check the URL at creation time.
+		t.Fatalf("New() failed: %v", err)
+	}
+	return client
+}
 
-		// Let's go back to client.go and improve it first.
-		t.Skip("Skipping test: NewClient should validate the baseURL upon creation.")
+func testMethod(t *testing.T, r *http.Request, want string) {
+	t.Helper()
+	if got := r.Method; got != want {
+		t.Errorf("Request method: %v, want %v", got, want)
+	}
+}
+
+func testHeader(t *testing.T, r *http.Request, header, want string) {
+	t.Helper()
+	if got := r.Header.Get(header); got != want {
+		t.Errorf("Header.Get(%q) returned %q, want %q", header, got, want)
+	}
+}
+
+func TestNew(t *testing.T) {
+	c, err := New("https://panel.example.com", WithAPIKey("test-key"))
+	if err != nil {
+		t.Fatalf("New() returned an unexpected error: %v", err)
 	}
 
-	_, listErr := client.ClientAPI.ListPermissions(context.Background())
-	if listErr == nil {
-		t.Errorf("expected an error from a request with a malformed baseURL, but got none")
+	wantBaseURL, _ := url.Parse("https://panel.example.com/api/")
+	if !reflect.DeepEqual(c.baseURL, wantBaseURL) {
+		t.Errorf("New() baseURL is %v, want %v", c.baseURL, wantBaseURL)
+	}
+
+	if c.apiKey != "test-key" {
+		t.Errorf("New() apiKey is %s, want %s", c.apiKey, "test-key")
+	}
+
+	if c.Application() == nil {
+		t.Error("New() Application client is nil")
+	}
+
+	if c.Client() == nil {
+		t.Error("New() Client client is nil")
+	}
+}
+
+func TestNew_emptyURL(t *testing.T) {
+	if _, err := New(""); err == nil {
+		t.Error("New() with empty URL should return an error")
+	}
+}
+
+func TestClient_Do(t *testing.T) {
+	mux, serverURL, teardown := setup()
+	defer teardown()
+
+	client := testClient(t, serverURL)
+
+	type foo struct {
+		A string
+	}
+
+	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testHeader(t, r, "Accept", "Application/vnd.pterodactyl.v1+json")
+		testHeader(t, r, "Authorization", "Bearer test-key")
+		fmt.Fprint(w, `{"A":"a"}`)
+	})
+
+	body := new(foo)
+	_, err := client.Do(context.Background(), http.MethodGet, "", nil, body)
+	if err != nil {
+		t.Fatalf("Do() returned error: %v", err)
+	}
+
+	want := &foo{"a"}
+	if !reflect.DeepEqual(body, want) {
+		t.Errorf("Response body = %v, want %v", body, want)
+	}
+}
+
+func TestClient_Do_httpError(t *testing.T) {
+	mux, serverURL, teardown := setup()
+	defer teardown()
+
+	client := testClient(t, serverURL)
+
+	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+	})
+
+	_, err := client.Do(context.Background(), http.MethodGet, "", nil, nil)
+
+	if err == nil {
+		t.Fatal("Expected HTTP 400 error, got nil.")
+	}
+	apiErr, ok := err.(*APIError)
+	if !ok {
+		t.Fatalf("Expected APIError, got %T", err)
+	}
+	if apiErr.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, apiErr.StatusCode)
+	}
+}
+
+func TestClient_Do_withBody(t *testing.T) {
+	mux, serverURL, teardown := setup()
+	defer teardown()
+
+	client := testClient(t, serverURL)
+
+	type RequestBody struct {
+		Name string `json:"name"`
+	}
+	type ResponseBody struct {
+		Success bool `json:"success"`
+	}
+
+	mux.HandleFunc("/api/test", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testHeader(t, r, "Content-Type", "application/json")
+
+		var reqBody RequestBody
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			t.Fatalf("decoding request body failed: %v", err)
+		}
+		if reqBody.Name != "test-name" {
+			t.Errorf("request body name is %s, want %s", reqBody.Name, "test-name")
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(ResponseBody{Success: true})
+	})
+
+	reqBody := RequestBody{Name: "test-name"}
+	var respBody ResponseBody
+	resp, err := client.Do(context.Background(), http.MethodPost, "test", &reqBody, &respBody)
+	if err != nil {
+		t.Fatalf("Do() returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("response status code is %d, want %d", resp.StatusCode, http.StatusCreated)
+	}
+	if !respBody.Success {
+		t.Error("response body success is false, want true")
 	}
 }
