@@ -108,11 +108,13 @@ type SftpDetails struct {
 	Port int    `json:"port"`
 }
 
-// Allocation represents a network allocation (IP and port).
+// Allocation represents a network allocation (IP and port) that can be assigned to a server.
 type Allocation struct {
-	ID        int     `json:"id"`
-	IP        string  `json:"ip"`
-	IPAlias   *string `json:"ip_alias,omitempty"`
+	ID int    `json:"id"`
+	IP string `json:"ip"`
+	// Alias is an optional display name for the IP address.
+	// When set, this friendly name (e.g., "venus.alprohosting.com") will be shown instead of the raw IP.
+	Alias     *string `json:"alias,omitempty"`
 	Port      int     `json:"port"`
 	Notes     *string `json:"notes,omitempty"`
 	IsDefault bool    `json:"is_default"`
@@ -192,12 +194,12 @@ type RecoveryTokens struct {
 
 // Database represents a server database.
 type Database struct {
-	ID              string `json:"id"`
-	Host            DatabaseHost
-	Name            string `json:"name"`
-	Username        string `json:"username"`
-	ConnectionsFrom string `json:"connections_from"`
-	MaxConnections  int    `json:"max_connections"`
+	ID              string       `json:"id"`
+	Host            DatabaseHost `json:"host"`
+	Name            string       `json:"name"`
+	Username        string       `json:"username"`
+	ConnectionsFrom string       `json:"connections_from"`
+	MaxConnections  int          `json:"max_connections"`
 	Password        *struct {
 		Attributes DatabasePassword `json:"attributes"`
 	} `json:"relationships,omitempty"`
@@ -253,11 +255,13 @@ type ActivityLog struct {
 }
 
 // StartupConfiguration represents the startup settings for a server.
+// Note: This struct is manually constructed from API response data (variables from the data array,
+// and the other fields from the meta object), not directly deserialized.
 type StartupConfiguration struct {
-	Variables         []*StartupVariable
-	StartupCommand    string
-	RawStartupCommand string
-	DockerImages      map[string]string
+	Variables         []*StartupVariable `json:"-"` // Constructed from data array, not a direct JSON field
+	StartupCommand    string             `json:"startup_command"`
+	RawStartupCommand string             `json:"raw_startup_command"`
+	DockerImages      map[string]string  `json:"docker_images"`
 }
 
 // SSHKey represents an SSH public key associated with an account.
@@ -316,6 +320,13 @@ type ScheduleTask struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
+// AllocatedResources represents the currently allocated resources on a node.
+// This shows how much of the node's total resources are currently in use by servers.
+type AllocatedResources struct {
+	Memory int64 `json:"memory"` // Allocated memory in MB
+	Disk   int64 `json:"disk"`   // Allocated disk space in MB
+}
+
 // Node represents a Wings daemon node.
 type Node struct {
 	ID                 int       `json:"id"`
@@ -338,6 +349,9 @@ type Node struct {
 	DaemonBase         string    `json:"daemon_base"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
+	// AllocatedResources shows the current resource usage by servers on this node.
+	// This is useful for determining available capacity before deploying new servers.
+	AllocatedResources *AllocatedResources `json:"allocated_resources,omitempty"`
 }
 
 // NodeConfiguration represents the Wings configuration for a node.

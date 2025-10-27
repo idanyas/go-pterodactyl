@@ -14,15 +14,15 @@ type CreateNodeRequest struct {
 	Name               string `json:"name" validate:"required,min=1"`
 	LocationID         int    `json:"location_id" validate:"required,gt=0"`
 	FQDN               string `json:"fqdn" validate:"required,fqdn"`
-	Scheme             string `json:"scheme" validate:"required,oneof=http https"`
+	Scheme             string `json:"scheme,omitempty" validate:"omitempty,oneof=http https"`
 	Memory             int64  `json:"memory" validate:"required,gt=0"`
-	MemoryOverallocate int64  `json:"memory_overallocate" validate:"gte=-1"`
+	MemoryOverallocate int64  `json:"memory_overallocate,omitempty" validate:"omitempty,gte=-1"`
 	Disk               int64  `json:"disk" validate:"required,gt=0"`
-	DiskOverallocate   int64  `json:"disk_overallocate" validate:"gte=-1"`
-	UploadSize         int64  `json:"upload_size" validate:"required,gt=0"`
-	DaemonSFTP         int    `json:"daemon_sftp" validate:"required,gt=0,lt=65536"`
-	DaemonListen       int    `json:"daemon_listen" validate:"required,gt=0,lt=65536"`
-	DaemonBase         string `json:"daemon_base" validate:"required"`
+	DiskOverallocate   int64  `json:"disk_overallocate,omitempty" validate:"omitempty,gte=-1"`
+	UploadSize         int64  `json:"upload_size,omitempty" validate:"omitempty,gt=0"`
+	DaemonSFTP         int    `json:"daemon_sftp,omitempty" validate:"omitempty,gt=0,lt=65536"`
+	DaemonListen       int    `json:"daemon_listen,omitempty" validate:"omitempty,gt=0,lt=65536"`
+	DaemonBase         string `json:"daemon_base,omitempty"`
 	Public             bool   `json:"public"`
 	BehindProxy        bool   `json:"behind_proxy"`
 	MaintenanceMode    bool   `json:"maintenance_mode"`
@@ -50,8 +50,20 @@ type UpdateNodeRequest struct {
 }
 
 // CreateNodeAllocationRequest defines the request body for creating node allocations.
+// Allocations represent IP:Port combinations that can be assigned to servers.
 type CreateNodeAllocationRequest struct {
-	IP    string   `json:"ip" validate:"required,ip"`
+	// IP is the IP address for the allocations (required).
+	IP string `json:"ip" validate:"required,ip"`
+
+	// Alias is an optional display name for the IP address.
+	// This is useful for providing friendly names (e.g., "Node1-Main" or "venus.alprohosting.com").
+	// If not provided, the IP address itself will be displayed.
+	Alias string `json:"alias,omitempty"`
+
+	// Ports is an array of port numbers or port ranges to allocate.
+	// Individual ports: ["25565", "25566"]
+	// Port ranges: ["25565-25570"]
+	// Mixed: ["25565", "25568-25570", "30000"]
 	Ports []string `json:"ports" validate:"required,min=1,dive,required"`
 }
 
@@ -123,6 +135,16 @@ func (c *client) ListNodeAllocations(ctx context.Context, nodeID int, options pa
 }
 
 // CreateNodeAllocations creates new allocations for a node.
+// This allows you to add new IP:Port combinations that can be assigned to servers.
+//
+// Example:
+//
+//	req := CreateNodeAllocationRequest{
+//	    IP:    "192.168.1.100",
+//	    Alias: "Node1-Main",
+//	    Ports: []string{"25565", "25566-25570"},
+//	}
+//	err := client.CreateNodeAllocations(ctx, nodeID, req)
 func (c *client) CreateNodeAllocations(ctx context.Context, nodeID int, req CreateNodeAllocationRequest) error {
 	path := fmt.Sprintf("application/nodes/%d/allocations", nodeID)
 	_, err := c.client.Do(ctx, http.MethodPost, path, req, nil)
